@@ -42,6 +42,7 @@
   --shadow:0 12px 32px rgba(0,0,0,.45);
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{height:100%}
 body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.45 var(--sans);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;overscroll-behavior-y:contain}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -174,6 +175,23 @@ legend{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:upperc
 .help p{margin:0 0 8px}
 .help ol{margin:0;padding-left:18px}
 .help li{margin-bottom:4px}
+/* lock screen */
+#lock{position:fixed;inset:0;z-index:50;background:var(--paper);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:24px;text-align:center}
+#lock[hidden]{display:none}
+#lock .mark{width:64px;height:64px;border-radius:18px;background:var(--accent);display:flex;align-items:center;justify-content:center}
+#lock .mark svg{width:32px;height:32px;stroke:var(--accent-ink);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.dots{display:flex;gap:14px;height:18px}
+.dots i{width:14px;height:14px;border-radius:50%;border:2px solid var(--line-strong);display:block;transition:background .1s}
+.dots i.on{background:var(--ink);border-color:var(--ink)}
+.dots.shake{animation:shake .35s}
+@keyframes shake{20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+.pad{display:grid;grid-template-columns:repeat(3,72px);gap:12px}
+.pad button{width:72px;height:72px;border-radius:50%;border:1px solid var(--line);background:var(--paper-2);font-size:24px;font-family:var(--mono);color:var(--ink)}
+.pad button:active{background:var(--paper-3)}
+.pad button.fn{font-family:var(--sans);font-size:13px;font-weight:500;border-color:transparent;background:transparent;color:var(--accent)}
+.pad button:focus-visible{outline:2px solid var(--accent)}
+#lockMsg{min-height:20px;color:var(--muted);font-size:13.5px}
+#lockMsg.bad{color:var(--bad)}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 @media (min-width:640px){body{padding:24px 0}#app{border:1px solid var(--line);border-radius:26px;overflow:hidden;background:var(--paper);min-height:calc(100vh - 48px)}nav.tabs{position:sticky;bottom:0}}
 </style>
@@ -216,9 +234,16 @@ legend{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:upperc
       <div class="field"><label>Full name *</label><input name="name" required autocomplete="off" placeholder="e.g. Rahul Menon"></div>
       <div class="grid2">
         <div class="field"><label>Phone</label><input name="phone" type="tel" inputmode="tel" placeholder="+971 50 …"></div>
-        <div class="field"><label>Relationship</label><input name="relationship" placeholder="Friend, cousin, colleague"></div>
+        <div class="field"><label>Relationship</label><select name="relationship" id="personRel"><option>Family</option><option>Friend</option><option>Other</option></select></div>
       </div>
       <div class="field"><label>Email</label><input name="email" type="email" placeholder="optional"></div>
+      <fieldset id="personInterest" hidden><legend>Interest (Others only)</legend>
+        <div class="grid2">
+          <div class="field"><label>Interest rate %</label><input name="interestRate" class="mono" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
+          <div class="field"><label>Rate is per</label><select name="interestPer"><option value="year">Year</option><option value="month">Month</option></select></div>
+        </div>
+        <span class="hint">Flat (simple) interest on the amount lent for the length of the loan. New loans to this person start with this rate; you can change it per loan.</span>
+      </fieldset>
       <fieldset><legend>Bank account</legend>
         <div class="field"><label>Bank name</label><input name="bankName" placeholder="e.g. Emirates NBD"></div>
         <div class="field"><label>Account holder name</label><input name="accountName" placeholder="Name as on the account"></div>
@@ -253,6 +278,13 @@ legend{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:upperc
       </div>
       <div class="field"><label>Date loaned</label><input name="loanDate" type="date" required><span class="hint">Defaults to today. Pick an earlier date for loans made in the past.</span></div>
       <div class="field"><label>Purpose</label><input name="purpose" placeholder="e.g. Car repair, medical, business"></div>
+      <fieldset id="loanInterest" hidden><legend>Interest</legend>
+        <div class="grid2">
+          <div class="field"><label>Interest rate %</label><input name="interestRate" class="mono" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
+          <div class="field"><label>Rate is per</label><select name="interestPer"><option value="year">Year</option><option value="month">Month</option></select></div>
+        </div>
+        <span class="hint">Flat interest: amount × rate × loan length (from date loaned to the last payment). Family and friends are always interest-free.</span>
+      </fieldset>
       <fieldset><legend>Repayment plan</legend>
         <div class="field"><label>How often does the person pay?</label>
           <div class="grid2">
@@ -295,6 +327,13 @@ legend{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:upperc
   </form>
 </dialog>
 
+<div id="lock" hidden role="dialog" aria-modal="true" aria-label="Unlock">
+  <div class="mark"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+  <div><h2 id="lockTitle">Enter your PIN</h2><div id="lockMsg"></div></div>
+  <div class="dots" id="lockDots"><i></i><i></i><i></i><i></i></div>
+  <div class="pad" id="lockPad"></div>
+  <div class="row"><button class="btn" id="lockBio" hidden><svg viewBox="0 0 24 24"><path d="M7 20a12 12 0 0 1-1-5 6 6 0 0 1 12 0c0 2-1 4-2 5M9 20c-.6-1.5-1-3-1-5a4 4 0 0 1 8 0c0 1.5-.2 3-.6 4M12 15v5M4 9a9 9 0 0 1 16 0"/></svg>Use fingerprint / Face ID</button><button class="btn ghost" id="lockForgot">Forgot PIN?</button></div>
+</div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -325,14 +364,14 @@ const round2=n=>Math.round(n*100)/100;
 /* ---------- storage ---------- */
 let db=load();
 function load(){
-  try{const raw=localStorage.getItem(KEY);if(raw){const d=JSON.parse(raw);return Object.assign({people:[],loans:[],payments:[],settings:{}},d,{settings:Object.assign({currency:'AED',daysBefore:3,notify:false,sample:false},d.settings||{})});}}catch(e){}
+  try{const raw=localStorage.getItem(KEY);if(raw){const d=JSON.parse(raw);(d.people||[]).forEach(p=>{if(!['Family','Friend','Other'].includes(p.relationship)){const r=(p.relationship||'').toLowerCase();p.relationship=/friend|colleague|mate|buddy/.test(r)?'Friend':/cousin|brother|sister|uncle|aunt|father|mother|son|daughter|wife|husband|family|nephew|niece|in-law|dad|mum|mom/.test(r)?'Family':r?'Other':'Friend';}});return Object.assign({people:[],loans:[],payments:[],settings:{}},d,{settings:Object.assign({currency:'AED',daysBefore:3,notify:false,sample:false},d.settings||{})});}}catch(e){}
   const d={people:[],loans:[],payments:[],settings:{currency:'AED',daysBefore:3,notify:false,sample:true}};
   seed(d);return d;
 }
 function save(){try{localStorage.setItem(KEY,JSON.stringify(db));}catch(e){toast('Could not save — storage is full or blocked.');}}
 function seed(d){
   const p1={id:'p_sample1',name:'Rahul Menon',phone:'+971 50 123 4567',relationship:'Friend',bankName:'Emirates NBD',accountName:'Rahul Menon',accountNumber:'1012345678901',iban:'AE07 0260 0010 1234 5678 901',method:'Bank transfer',notes:'Example entry — delete from More › Clear example data',createdAt:Date.now()};
-  const p2={id:'p_sample2',name:'Priya Nair',phone:'+91 98765 43210',relationship:'Cousin',bankName:'HDFC Bank',accountName:'Priya S Nair',accountNumber:'50100123456789',method:'Bank transfer',notes:'Example entry',createdAt:Date.now()};
+  const p2={id:'p_sample2',name:'Priya Nair',phone:'+91 98765 43210',relationship:'Family',bankName:'HDFC Bank',accountName:'Priya S Nair',accountNumber:'50100123456789',method:'Bank transfer',notes:'Example entry',createdAt:Date.now()};
   const t=today();
   const l1={id:'l_sample1',personId:'p_sample1',amount:12000,currency:'AED',loanDate:addMonths(t,-4),purpose:'Car repair',freqCount:1,freqUnit:'month',firstDue:addMonths(addDays(t,-10),-3),instalments:12,notes:'Agreed verbally, WhatsApp record kept',status:'active',createdAt:Date.now()};
   const l2={id:'l_sample2',personId:'p_sample2',amount:50000,currency:'INR',loanDate:addMonths(t,-1),purpose:'Laptop for studies',freqCount:2,freqUnit:'month',firstDue:addDays(t,5),instalments:10,notes:'',status:'active',createdAt:Date.now()};
@@ -352,27 +391,35 @@ function freqLabel(count,unit){
   if(unit==='month')return count===1?'Monthly':count===2?'Twice a month':count===4?'Weekly (4 / month)':`${count} × per month`;
   const map={1:'Yearly',2:'Every 6 months',3:'Every 4 months',4:'Quarterly',6:'Every 2 months',12:'Monthly'};return map[count]||`${count} × per year`;
 }
+function interestOf(amount,rate,per,loanDate,lastDue){
+  if(!rate||rate<=0)return 0;
+  const months=Math.max(0,daysBetween(loanDate,lastDue))/30.4375;
+  const monthly=per==='month'?rate/100:rate/100/12;
+  return round2(amount*monthly*months);
+}
+function loanTotal(l){const last=stepDate(l.firstDue,Math.max(1,l.instalments|0)-1,l.freqCount,l.freqUnit);const interest=interestOf(l.amount,+l.interestRate||0,l.interestPer||'year',l.loanDate,last);return {interest,total:round2(l.amount+interest),last};}
 function countUntil(first,payoff,count,unit){let k=0;while(stepDate(first,k,count,unit)<=payoff&&k<600)k++;return Math.max(1,k);}
 function schedule(loan){
   const pays=db.payments.filter(p=>p.loanId===loan.id).sort((a,b)=>a.date<b.date?-1:1);
   const paidTotal=round2(pays.reduce((s,p)=>s+Number(p.amount),0));
   const n=Math.max(1,loan.instalments|0);
-  const base=Math.floor(loan.amount/n*100)/100;
+  const {interest,total}=loanTotal(loan);
+  const base=Math.floor(total/n*100)/100;
   const rows=[];let remaining=paidTotal;const t=today();
   for(let k=0;k<n;k++){
-    const due=k===n-1?round2(loan.amount-base*(n-1)):base;
+    const due=k===n-1?round2(total-base*(n-1)):base;
     const date=stepDate(loan.firstDue,k,loan.freqCount,loan.freqUnit);
     const applied=Math.min(due,Math.max(0,remaining));remaining=round2(remaining-applied);
     let state=applied>=due-0.004?'paid':date<t?'overdue':daysBetween(t,date)<=db.settings.daysBefore?'due':'upcoming';
     if(state!=='paid'&&applied>0)state=state==='overdue'?'overdue':state;
     rows.push({k,date,due,applied:round2(applied),state});
   }
-  const outstanding=round2(loan.amount-paidTotal);
+  const outstanding=round2(total-paidTotal);
   const next=rows.find(r=>r.state!=='paid')||null;
   const overdueAmt=round2(rows.filter(r=>r.state==='overdue').reduce((s,r)=>s+r.due-r.applied,0));
   const paidOff=outstanding<=0.004;
   const status=paidOff?'paid':overdueAmt>0?'overdue':next&&next.state==='due'?'due':'ok';
-  return {rows,pays,paidTotal,outstanding:Math.max(0,outstanding),next,overdueAmt,status,payoffDate:rows[n-1].date};
+  return {rows,pays,paidTotal,outstanding:Math.max(0,outstanding),next,overdueAmt,status,payoffDate:rows[n-1].date,interest,total};
 }
 const personOf=id=>db.people.find(p=>p.id===id)||{name:'(deleted person)'};
 const initials=n=>n.trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
@@ -397,7 +444,7 @@ const plusSvg='<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>';
 /* ---------- home ---------- */
 function totals(){
   const byCur={};
-  db.loans.filter(l=>l.status!=='closed').forEach(l=>{const s=schedule(l);const c=byCur[l.currency]||(byCur[l.currency]={lent:0,paid:0,out:0,overdue:0});c.lent+=l.amount;c.paid+=s.paidTotal;c.out+=s.outstanding;c.overdue+=s.overdueAmt;});
+  db.loans.filter(l=>l.status!=='closed').forEach(l=>{const s=schedule(l);const c=byCur[l.currency]||(byCur[l.currency]={lent:0,interest:0,paid:0,out:0,overdue:0});c.lent+=l.amount;c.interest+=s.interest;c.paid+=s.paidTotal;c.out+=s.outstanding;c.overdue+=s.overdueAmt;});
   return byCur;
 }
 function renderHome(){
@@ -406,10 +453,10 @@ function renderHome(){
   let html='';
   if(db.settings.sample)html+=`<div class="notice"><span>Showing example data so you can see how it works.</span><button class="btn sm" id="clearSample">Clear examples</button></div>`;
   if(!curs.length){html+=`<div class="empty"><h3>Nothing lent yet</h3><span>Add a person, then record the loan you gave them.</span><button class="btn primary" id="emptyAddPerson">Add a person</button></div>`;}
-  curs.forEach(c=>{const t=byCur[c];const pct=t.lent?Math.min(100,t.paid/t.lent*100):0;
+  curs.forEach(c=>{const t=byCur[c];const pct=(t.lent+t.interest)?Math.min(100,t.paid/(t.lent+t.interest)*100):0;
     html+=`<div class="hero"><div><span class="eyebrow">Outstanding</span><div class="big"><span class="cur">${c}</span>${fmtMoney(t.out)}</div></div>
     <div class="bar"><i style="width:${pct.toFixed(1)}%"></i></div>
-    <div class="stats"><div><span class="eyebrow">Lent</span><span class="v">${fmtMoney(t.lent)}</span></div><div><span class="eyebrow">Recovered</span><span class="v">${fmtMoney(t.paid)}</span></div><div><span class="eyebrow">Overdue</span><span class="v ${t.overdue>0?'bad':''}">${fmtMoney(t.overdue)}</span></div></div></div>`;});
+    <div class="stats"><div><span class="eyebrow">Lent${t.interest>0?' + interest':''}</span><span class="v">${fmtMoney(t.lent)}${t.interest>0?` <span class="small muted">+${fmtMoney(t.interest)}</span>`:''}</span></div><div><span class="eyebrow">Recovered</span><span class="v">${fmtMoney(t.paid)}</span></div><div><span class="eyebrow">Overdue</span><span class="v ${t.overdue>0?'bad':''}">${fmtMoney(t.overdue)}</span></div></div></div>`;});
   const active=db.loans.filter(l=>l.status!=='closed').map(l=>({l,s:schedule(l)})).filter(x=>x.s.status!=='paid').sort((a,b)=>(a.s.next?.date||'9')<(b.s.next?.date||'9')?-1:1);
   const attention=active.filter(x=>x.s.status==='overdue'||x.s.status==='due');
   if(attention.length){html+=`<div class="section"><div class="section-head"><h2>Needs attention</h2><span class="small muted">${attention.length} loan${attention.length>1?'s':''}</span></div><div class="list">${attention.map(loanItem).join('')}</div></div>`;}
@@ -424,7 +471,7 @@ function loanItem({l,s}){
   const p=personOf(l.personId);
   if(l.status==='closed')return `<button class="item" data-loan="${l.id}"><span class="stripe paid"></span><span class="grow"><span class="t"><span class="name">${esc(p.name)}</span><span class="pill paid">Closed</span></span><span class="s">Closed with ${fmtMoney(s.outstanding,l.currency)} unpaid${l.purpose?' · '+esc(l.purpose):''}</span></span><span class="amt">${fmtMoney(s.paidTotal)}<small>of ${fmtMoney(l.amount,l.currency)}</small></span></button>`;
   const sub=s.status==='paid'?`Paid off · ${fmtDate(s.payoffDate)}`:s.status==='overdue'?`${fmtMoney(s.overdueAmt,l.currency)} overdue · due ${fmtShort(s.next.date)}`:s.next?`Next ${fmtMoney(s.next.due-s.next.applied,l.currency)} on ${fmtDate(s.next.date)}`:'';
-  return `<button class="item" data-loan="${l.id}"><span class="stripe ${s.status}"></span><span class="grow"><span class="t"><span class="name">${esc(p.name)}</span><span class="pill ${s.status}">${({paid:'Paid',overdue:'Overdue',due:'Due soon',ok:'On track'})[s.status]}</span></span><span class="s">${sub}${l.purpose?' · '+esc(l.purpose):''}</span></span><span class="amt">${fmtMoney(s.outstanding)}<small>of ${fmtMoney(l.amount,l.currency)}</small></span></button>`;
+  return `<button class="item" data-loan="${l.id}"><span class="stripe ${s.status}"></span><span class="grow"><span class="t"><span class="name">${esc(p.name)}</span><span class="pill ${s.status}">${({paid:'Paid',overdue:'Overdue',due:'Due soon',ok:'On track'})[s.status]}</span></span><span class="s">${sub}${l.purpose?' · '+esc(l.purpose):''}</span></span><span class="amt">${fmtMoney(s.outstanding)}<small>of ${fmtMoney(s.total,l.currency)}</small></span></button>`;
 }
 function bindItems(root){
   $$('[data-loan]',root).forEach(b=>b.addEventListener('click',()=>{detail={type:'loan',id:b.dataset.loan};render();window.scrollTo(0,0);}));
@@ -446,7 +493,7 @@ function renderPerson(id){
   $('#hdrEyebrow').textContent=p.relationship||'Borrower';$('#hdrTitle').textContent=p.name;
   headerBtn('Edit',()=>openPerson(p));headerBtn(plusSvg+' Loan',()=>openLoan(null,p.id),true);
   const loans=db.loans.filter(l=>l.personId===id).map(l=>({l,s:schedule(l)})).sort((a,b)=>a.l.loanDate<b.l.loanDate?1:-1);
-  const kv=[['Phone',p.phone&&`<a href="tel:${esc(p.phone)}">${esc(p.phone)}</a>`],['Email',p.email&&`<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>`],['Address',p.address],['Guarantor',p.guarantor],['ID reference',p.idRef&&`<span class="num">${esc(p.idRef)}</span>`],['Notes',p.notes]].filter(([,v])=>v);
+  const kv=[['Default interest',p.relationship==='Other'&&+p.interestRate>0?`${esc(p.interestRate)}% per ${p.interestPer==='month'?'month':'year'} (flat)`:''],['Phone',p.phone&&`<a href="tel:${esc(p.phone)}">${esc(p.phone)}</a>`],['Email',p.email&&`<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>`],['Address',p.address],['Guarantor',p.guarantor],['ID reference',p.idRef&&`<span class="num">${esc(p.idRef)}</span>`],['Notes',p.notes]].filter(([,v])=>v);
   const bank=[['Bank',esc(p.bankName)],['Account name',esc(p.accountName)],['Account no.',p.accountNumber&&`<span class="num">${esc(p.accountNumber)}</span>`],['IBAN',p.iban&&`<span class="num">${esc(p.iban)}</span>`],['SWIFT',p.swift&&`<span class="num">${esc(p.swift)}</span>`],['Pays by',esc(p.method)]].filter(([,v])=>v);
   $('#view-detail').innerHTML=`<button class="back" id="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>Back</button>
   <div class="section"><div class="section-head"><h2>Loans</h2></div>${loans.length?`<div class="list">${loans.map(loanItem).join('')}</div>`:`<div class="empty"><span>No loans recorded for ${esc(p.name)} yet.</span></div>`}</div>
@@ -474,21 +521,22 @@ function renderLoan(id){
   const p=personOf(l.personId),s=schedule(l);
   $('#hdrEyebrow').textContent='Loan to '+p.name;$('#hdrTitle').textContent=fmtMoney(l.amount,l.currency);
   headerBtn('Edit',()=>openLoan(l));if(s.status!=='paid'&&l.status!=='closed')headerBtn(plusSvg+' Payment',()=>openPay(l),true);
-  const pct=l.amount?Math.min(100,s.paidTotal/l.amount*100):0;
+  const pct=s.total?Math.min(100,s.paidTotal/s.total*100):0;
   const stateLine=s.status==='paid'?`<div class="notice good"><span>Fully repaid. Last payment ${fmtDate(s.pays.at(-1)?.date)}.</span></div>`:s.status==='overdue'?`<div class="notice bad"><span><b>${fmtMoney(s.overdueAmt,l.currency)} overdue.</b> ${s.rows.filter(r=>r.state==='overdue').length} payment(s) missed — oldest due ${fmtDate(s.next.date)}.</span></div>`:s.next?`<div class="notice ${s.status==='due'?'':'good'}"><span>Next payment <b>${fmtMoney(s.next.due-s.next.applied,l.currency)}</b> due ${fmtDate(s.next.date)} (${daysBetween(today(),s.next.date)} days).</span></div>`:'';
   $('#view-detail').innerHTML=`<button class="back" id="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>Back</button>
   ${stateLine}
   <div class="hero"><div class="row between"><div><span class="eyebrow">Still owed</span><div class="big"><span class="cur">${l.currency}</span>${fmtMoney(s.outstanding)}</div></div><span class="pill ${s.status}">${({paid:'Paid',overdue:'Overdue',due:'Due soon',ok:'On track'})[s.status]}</span></div>
     <div class="bar"><i style="width:${pct.toFixed(1)}%"></i></div>
     <div class="stats"><div><span class="eyebrow">Recovered</span><span class="v">${fmtMoney(s.paidTotal)}</span></div><div><span class="eyebrow">Payments</span><span class="v">${s.rows.filter(r=>r.state==='paid').length} / ${l.instalments}</span></div><div><span class="eyebrow">Paid off</span><span class="v">${fmtShort(s.payoffDate)} ${parse(s.payoffDate).getFullYear()}</span></div></div></div>
-  <div class="row wrap actions"><button class="btn grow" id="icsBtn"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Add reminders to calendar</button><button class="btn grow" id="shareBtn"><svg viewBox="0 0 24 24"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M12 3v13M7 8l5-5 5 5"/></svg>Share statement</button></div>
-  <div class="card"><h3>Terms</h3><dl class="kv"><dt>Borrower</dt><dd><button class="back" data-person="${p.id}">${esc(p.name)}</button></dd><dt>Date loaned</dt><dd>${fmtDate(l.loanDate)}</dd><dt>Schedule</dt><dd>${freqLabel(l.freqCount,l.freqUnit)} · ${l.instalments} payments of ~${fmtMoney(l.amount/l.instalments,l.currency)}</dd><dt>First payment</dt><dd>${fmtDate(l.firstDue)}</dd>${l.purpose?`<dt>Purpose</dt><dd>${esc(l.purpose)}</dd>`:''}${l.notes?`<dt>Notes</dt><dd>${esc(l.notes)}</dd>`:''}</dl></div>
+  <div class="row wrap actions"><button class="btn grow" id="icsBtn"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Add reminders to calendar</button><button class="btn grow" id="waBtn"><svg viewBox="0 0 24 24"><path d="M4 20l1.3-3.8A8 8 0 1 1 8 19.1z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-1 .8a4 4 0 0 1-2-2l.8-1-1-2z"/></svg>Remind on WhatsApp</button><button class="btn grow" id="shareBtn"><svg viewBox="0 0 24 24"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M12 3v13M7 8l5-5 5 5"/></svg>Share statement</button></div>
+  <div class="card"><h3>Terms</h3><dl class="kv"><dt>Borrower</dt><dd><button class="back" data-person="${p.id}">${esc(p.name)}</button></dd><dt>Date loaned</dt><dd>${fmtDate(l.loanDate)}</dd><dt>Interest</dt><dd>${s.interest>0?`${l.interestRate}% per ${l.interestPer==='month'?'month':'year'} (flat) · ${fmtMoney(s.interest,l.currency)} → total repayable <span class="num">${fmtMoney(s.total,l.currency)}</span>`:'None'}</dd><dt>Schedule</dt><dd>${freqLabel(l.freqCount,l.freqUnit)} · ${l.instalments} payments of ~${fmtMoney(s.total/l.instalments,l.currency)}</dd><dt>First payment</dt><dd>${fmtDate(l.firstDue)}</dd>${l.purpose?`<dt>Purpose</dt><dd>${esc(l.purpose)}</dd>`:''}${l.notes?`<dt>Notes</dt><dd>${esc(l.notes)}</dd>`:''}</dl></div>
   <div class="card"><h3>Payment schedule</h3><div class="scroll"><table class="sched"><thead><tr><th>#</th><th>Due date</th><th class="r">Amount</th><th class="r">Received</th><th>Status</th></tr></thead><tbody>${s.rows.map(r=>`<tr class="${r.state}"><td class="num">${r.k+1}</td><td>${fmtDate(r.date)}</td><td class="r num">${fmtMoney(r.due)}</td><td class="r num">${r.applied?fmtMoney(r.applied):'—'}</td><td><span class="pill ${r.state==='upcoming'?'':r.state==='due'?'due':r.state}">${({paid:'Paid',overdue:'Overdue',due:'Due soon',upcoming:'Upcoming'})[r.state]}${r.state!=='paid'&&r.applied?' (part)':''}</span></td></tr>`).join('')}</tbody></table></div></div>
   <div class="card"><div class="row between"><h3>Payments received</h3><span class="small muted">${s.pays.length}</span></div>${s.pays.length?`<div class="scroll"><table class="sched"><thead><tr><th>Date</th><th class="r">Amount</th><th>Method</th><th></th></tr></thead><tbody>${s.pays.map(x=>`<tr><td>${fmtDate(x.date)}${x.note?`<div class="small muted">${esc(x.note)}</div>`:''}</td><td class="r num">${fmtMoney(x.amount)}</td><td>${esc(x.method||'')}${x.ref?`<div class="small muted num">${esc(x.ref)}</div>`:''}</td><td class="r"><button class="btn ghost sm" data-editpay="${x.id}">Edit</button></td></tr>`).join('')}</tbody></table></div>`:'<span class="muted small">No payments received yet.</span>'}</div>
   <div class="row wrap">${l.status==='closed'?`<button class="btn grow" id="reopen">Reopen loan</button>`:`<button class="btn grow" id="closeLoan">Close / write off</button>`}<button class="btn danger grow" id="delLoan">Delete loan</button></div>`;
   $('#back').addEventListener('click',()=>{detail=null;render();});
   $('#icsBtn').addEventListener('click',()=>exportICS(l,s));
   $('#shareBtn').addEventListener('click',()=>shareStatement(l,s,p));
+  $('#waBtn').addEventListener('click',()=>waOpen(l,s,p));
   $$('[data-editpay]').forEach(b=>b.addEventListener('click',()=>openPay(l,db.payments.find(x=>x.id===b.dataset.editpay))));
   $('#closeLoan')?.addEventListener('click',()=>{if(!confirm('Mark this loan as closed? It will stop appearing in reminders.'))return;l.status='closed';save();render();});
   $('#reopen')?.addEventListener('click',()=>{l.status='active';save();render();});
@@ -502,10 +550,11 @@ function renderRemind(){
   const items=db.loans.filter(l=>l.status!=='closed').map(l=>({l,s:schedule(l)})).filter(x=>x.s.status!=='paid');
   const groups={overdue:[],due:[],ok:[]};items.forEach(x=>groups[x.s.status].push(x));
   Object.values(groups).forEach(g=>g.sort((a,b)=>a.s.next.date<b.s.next.date?-1:1));
-  const block=(title,arr,cls)=>arr.length?`<div class="section"><div class="section-head"><h2>${title}</h2><span class="small muted">${arr.length}</span></div><div class="list">${arr.map(x=>{const p=personOf(x.l.personId);const r=x.s.next;return `<div class="item"><span class="stripe ${cls}"></span><span class="grow"><span class="t"><span class="name">${esc(p.name)}</span></span><span class="s">${fmtMoney(r.due-r.applied,x.l.currency)} · due ${fmtDate(r.date)} · ${cls==='overdue'?Math.abs(daysBetween(today(),r.date))+' days late':daysBetween(today(),r.date)+' days'}</span><span class="row" style="margin-top:8px"><button class="btn sm primary" data-pay="${x.l.id}">Record payment</button><button class="btn sm" data-loan="${x.l.id}">Open</button>${p.phone?`<a class="btn sm" href="tel:${esc(p.phone)}">Call</a>`:''}</span></span></div>`;}).join('')}</div></div>`:'';
+  const block=(title,arr,cls)=>arr.length?`<div class="section"><div class="section-head"><h2>${title}</h2><span class="small muted">${arr.length}</span></div><div class="list">${arr.map(x=>{const p=personOf(x.l.personId);const r=x.s.next;return `<div class="item"><span class="stripe ${cls}"></span><span class="grow"><span class="t"><span class="name">${esc(p.name)}</span></span><span class="s">${fmtMoney(r.due-r.applied,x.l.currency)} · due ${fmtDate(r.date)} · ${cls==='overdue'?Math.abs(daysBetween(today(),r.date))+' days late':daysBetween(today(),r.date)+' days'}</span><span class="row" style="margin-top:8px"><button class="btn sm primary" data-pay="${x.l.id}">Record payment</button><button class="btn sm" data-loan="${x.l.id}">Open</button><button class="btn sm" data-wa="${x.l.id}">WhatsApp</button>${p.phone?`<a class="btn sm" href="tel:${esc(p.phone)}">Call</a>`:''}</span></span></div>`;}).join('')}</div></div>`:'';
   v.innerHTML=`${notifyBanner()}${block('Overdue',groups.overdue,'overdue')}${block('Due soon',groups.due,'due')}${block('Upcoming',groups.ok,'ok')}${items.length?'':'<div class="empty"><h3>Nothing to chase</h3><span>Every active loan is on schedule.</span></div>'}
-  <div class="card help"><h3>How reminders work</h3><p>The app checks every loan whenever you open it and lists anything overdue or due within ${db.settings.daysBefore} days here. Because a web app can't wake your phone on its own, tap <b>Add reminders to calendar</b> on any loan: it creates a repeating event in your phone's Calendar (iPhone or Android) that alerts you one day before each payment until the loan is paid off.</p></div>`;
+  <div class="card help"><h3>How reminders work</h3><p>The app checks every loan whenever you open it and lists anything overdue or due within ${db.settings.daysBefore} days here. Because a web app can't wake your phone on its own, tap <b>Add reminders to calendar</b> on any loan: it creates a repeating event in your phone's Calendar (iPhone or Android) that alerts you one day before each payment until the loan is paid off. <b>WhatsApp</b> opens a chat with the person and a ready-written reminder — you just press send.</p></div>`;
   $$('[data-pay]',v).forEach(b=>b.addEventListener('click',()=>openPay(db.loans.find(l=>l.id===b.dataset.pay))));
+  $$('[data-wa]',v).forEach(b=>b.addEventListener('click',()=>{const l=db.loans.find(x=>x.id===b.dataset.wa);waOpen(l,schedule(l),personOf(l.personId));}));
   $('#enableNotify')?.addEventListener('click',enableNotify);
   bindItems(v);
 }
@@ -534,7 +583,7 @@ function exportICS(l,s){
   else rrule=`FREQ=DAILY;INTERVAL=${Math.max(1,Math.round(u==='year'?365/c:30/c))};COUNT=${count}`;
   const per=fmtMoney(remaining[0].due,l.currency);
   const stampNow=new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
-  const ics=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Lent Ledger//EN','CALSCALE:GREGORIAN','BEGIN:VEVENT',`UID:${l.id}@lentledger`,`DTSTAMP:${stampNow}`,`DTSTART;VALUE=DATE:${icsDate(first)}`,`DTEND;VALUE=DATE:${icsDate(addDays(first,1))}`,`RRULE:${rrule}`,`SUMMARY:Loan payment due — ${p.name} (${per})`,`DESCRIPTION:${p.name} owes ${per} on this date. Outstanding ${fmtMoney(s.outstanding,l.currency)} of ${fmtMoney(l.amount,l.currency)}${l.purpose?' — '+l.purpose:''}. Payments left after this: ${count-1}.`.replace(/\n/g,'\\n'),'BEGIN:VALARM','TRIGGER:-P1D','ACTION:DISPLAY',`DESCRIPTION:Tomorrow: ${p.name} loan payment ${per}`,'END:VALARM','BEGIN:VALARM','TRIGGER:PT9H','ACTION:DISPLAY',`DESCRIPTION:Today: ${p.name} loan payment ${per}`,'END:VALARM','END:VEVENT','END:VCALENDAR'].join('\r\n');
+  const ics=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Lent Ledger//EN','CALSCALE:GREGORIAN','BEGIN:VEVENT',`UID:${l.id}@lentledger`,`DTSTAMP:${stampNow}`,`DTSTART;VALUE=DATE:${icsDate(first)}`,`DTEND;VALUE=DATE:${icsDate(addDays(first,1))}`,`RRULE:${rrule}`,`SUMMARY:Loan payment due — ${p.name} (${per})`,`DESCRIPTION:${p.name} owes ${per} on this date. Outstanding ${fmtMoney(s.outstanding,l.currency)} of ${fmtMoney(s.total,l.currency)}${l.purpose?' — '+l.purpose:''}. Payments left after this: ${count-1}.`.replace(/\n/g,'\\n'),'BEGIN:VALARM','TRIGGER:-P1D','ACTION:DISPLAY',`DESCRIPTION:Tomorrow: ${p.name} loan payment ${per}`,'END:VALARM','BEGIN:VALARM','TRIGGER:PT9H','ACTION:DISPLAY',`DESCRIPTION:Today: ${p.name} loan payment ${per}`,'END:VALARM','END:VEVENT','END:VCALENDAR'].join('\r\n');
   downloadFile(`loan-${p.name.replace(/\W+/g,'-').toLowerCase()}.ics`,ics,'text/calendar');
 }
 let dl=null,dlReady=false;
@@ -546,8 +595,17 @@ async function downloadFile(name,content,type){
   if(HOSTED_VIEWER){toast('File downloads only work in the installed app — use the zip package to install it on your phone.');return;}
   const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(url);},2000);toast(ext==='ics'?'Calendar file ready — open it to add the reminders.':'Saved '+name);
 }
+function waMessage(l,s,p){
+  const r=s.next;if(!r)return '';const late=r.date<today();
+  return `Hi ${p.name.split(' ')[0]}, a friendly reminder about the loan of ${fmtMoney(l.amount,l.currency)}${l.purpose?' ('+l.purpose+')':''} from ${fmtDate(l.loanDate)}. The payment of ${fmtMoney(r.due-r.applied,l.currency)} ${late?'was due on':'is due on'} ${fmtDate(r.date)}. Outstanding balance: ${fmtMoney(s.outstanding,l.currency)}. Thank you!`;
+}
+function waOpen(l,s,p){
+  const msg=waMessage(l,s,p);if(!msg){toast('Nothing due on this loan.');return;}
+  const num=(p.phone||'').replace(/[^0-9]/g,'');
+  window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`,'_blank','noopener');
+}
 async function shareStatement(l,s,p){
-  const lines=[`Loan statement — ${p.name}`,`Loaned ${fmtMoney(l.amount,l.currency)} on ${fmtDate(l.loanDate)}${l.purpose?' ('+l.purpose+')':''}`,`Received so far: ${fmtMoney(s.paidTotal,l.currency)}`,`Outstanding: ${fmtMoney(s.outstanding,l.currency)}`,s.next?`Next payment: ${fmtMoney(s.next.due-s.next.applied,l.currency)} due ${fmtDate(s.next.date)}`:'Fully paid',`Plan: ${freqLabel(l.freqCount,l.freqUnit)}, paid off by ${fmtDate(s.payoffDate)}`,'',...s.pays.map(x=>`${fmtDate(x.date)}  ${fmtMoney(x.amount,l.currency)}  ${x.method||''}`)];
+  const lines=[`Loan statement — ${p.name}`,`Loaned ${fmtMoney(l.amount,l.currency)} on ${fmtDate(l.loanDate)}${l.purpose?' ('+l.purpose+')':''}`,...(s.interest>0?[`Interest: ${l.interestRate}% per ${l.interestPer} (flat) = ${fmtMoney(s.interest,l.currency)} — total repayable ${fmtMoney(s.total,l.currency)}`]:[]),`Received so far: ${fmtMoney(s.paidTotal,l.currency)}`,`Outstanding: ${fmtMoney(s.outstanding,l.currency)}`,s.next?`Next payment: ${fmtMoney(s.next.due-s.next.applied,l.currency)} due ${fmtDate(s.next.date)}`:'Fully paid',`Plan: ${freqLabel(l.freqCount,l.freqUnit)}, paid off by ${fmtDate(s.payoffDate)}`,'',...s.pays.map(x=>`${fmtDate(x.date)}  ${fmtMoney(x.amount,l.currency)}  ${x.method||''}`)];
   const text=lines.join('\n');
   if(navigator.share){try{await navigator.share({title:'Loan statement',text});return;}catch(e){}}
   try{await navigator.clipboard.writeText(text);toast('Statement copied to clipboard');}catch(e){prompt('Copy this statement:',text);}
@@ -561,6 +619,7 @@ function renderMore(){
     <div class="field"><label>Show "due soon" this many days ahead</label><input id="setDays" type="number" min="0" max="60" value="${db.settings.daysBefore}"></div>
     <div class="field"><label>Appearance</label><div class="seg" id="themeSeg"><button type="button" data-theme="">System</button><button type="button" data-theme="light">Light</button><button type="button" data-theme="dark">Dark</button></div></div>
   </div>
+  <div class="card"><h3>Security</h3>${secCard()}</div>
   <div class="card"><h3>Backup</h3><p class="help">Everything is stored only on this device. Export a backup regularly — especially before clearing browser data or switching phones — and import it on the new device.</p>
     <div class="row wrap"><button class="btn grow" id="expJson">Export backup (.json)</button><button class="btn grow" id="impJson">Import backup</button></div>
     <button class="btn block" id="expCsv">Export all loans &amp; payments (.csv)</button>
@@ -574,6 +633,7 @@ function renderMore(){
   $('#setCur').addEventListener('change',e=>{db.settings.currency=e.target.value;save();toast('Default currency: '+e.target.value);});
   $('#setDays').addEventListener('change',e=>{db.settings.daysBefore=Math.max(0,Math.min(60,+e.target.value||0));save();});
   const cur=localStorage.getItem('lentledger.theme')||'';$$('#themeSeg button').forEach(b=>{b.classList.toggle('on',b.dataset.theme===cur);b.addEventListener('click',()=>applyTheme(b.dataset.theme,true));});
+  bindSec();
   $('#expJson').addEventListener('click',()=>downloadFile(`lent-ledger-backup-${today()}.json`,JSON.stringify(db,null,2),'application/json'));
   $('#impJson').addEventListener('click',()=>$('#fileImp').click());
   $('#fileImp').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.people)||!Array.isArray(d.loans))throw 0;if(!confirm(`Replace current data with this backup (${d.people.length} people, ${d.loans.length} loans)?`))return;db=Object.assign({people:[],loans:[],payments:[],settings:{}},d);db.settings=Object.assign({currency:'AED',daysBefore:3,notify:false,sample:false},db.settings);save();render();toast('Backup restored');}catch(err){toast('That file is not a Lent Ledger backup.');}e.target.value='';});
@@ -584,8 +644,8 @@ function renderMore(){
 function clearSample(){db.people=db.people.filter(p=>!p.id.startsWith('p_sample'));db.loans=db.loans.filter(l=>!l.id.startsWith('l_sample'));db.payments=db.payments.filter(x=>!x.id.startsWith('pay_s'));db.settings.sample=false;save();render();toast('Example data cleared');}
 function exportCSV(){
   const q=s=>`"${String(s??'').replace(/"/g,'""')}"`;
-  const rows=[['Type','Person','Phone','Bank','Account no.','IBAN','Loan date','Currency','Amount','Purpose','Frequency','First due','Instalments','Pay-off by','Paid','Outstanding','Status','Payment date','Payment amount','Method','Reference','Note']];
-  db.loans.forEach(l=>{const p=personOf(l.personId),s=schedule(l);const base=['Loan',p.name,p.phone,p.bankName,p.accountNumber,p.iban,l.loanDate,l.currency,l.amount,l.purpose,freqLabel(l.freqCount,l.freqUnit),l.firstDue,l.instalments,s.payoffDate,s.paidTotal,s.outstanding,l.status==='closed'?'closed':s.status];rows.push(base);s.pays.forEach(x=>rows.push(['Payment',p.name,'','','','','',l.currency,'','','','','','','','','',x.date,x.amount,x.method,x.ref,x.note]));});
+  const rows=[['Type','Person','Relationship','Phone','Bank','Account no.','IBAN','Loan date','Currency','Amount','Interest rate','Rate per','Interest','Total repayable','Purpose','Frequency','First due','Instalments','Pay-off by','Paid','Outstanding','Status','Payment date','Payment amount','Method','Reference','Note']];
+  db.loans.forEach(l=>{const p=personOf(l.personId),s=schedule(l);const base=['Loan',p.name,p.relationship,p.phone,p.bankName,p.accountNumber,p.iban,l.loanDate,l.currency,l.amount,l.interestRate||0,l.interestRate?l.interestPer:'',s.interest,s.total,l.purpose,freqLabel(l.freqCount,l.freqUnit),l.firstDue,l.instalments,s.payoffDate,s.paidTotal,s.outstanding,l.status==='closed'?'closed':s.status];rows.push(base);s.pays.forEach(x=>rows.push(['Payment',p.name,'','','','','','',l.currency,'','','','','','','','','','','','',x.date,x.amount,x.method,x.ref,x.note]));});
   downloadFile(`lent-ledger-${today()}.csv`,rows.map(r=>r.map(q).join(',')).join('\r\n'),'text/csv');
 }
 function applyTheme(t,persist){const root=document.documentElement;if(t)root.setAttribute('data-theme',t);else root.removeAttribute('data-theme');if(persist){try{t?localStorage.setItem('lentledger.theme',t):localStorage.removeItem('lentledger.theme');}catch(e){}if(tab==='more'&&!detail)render();}}
@@ -596,8 +656,10 @@ $$('dialog.sheet').forEach(d=>{$('[data-close]',d).addEventListener('click',()=>
 function fill(form,obj){$$('[name]',form).forEach(el=>{el.value=obj[el.name]??'';});}
 function read(form){const o={};$$('[name]',form).forEach(el=>{o[el.name]=el.value.trim();});return o;}
 
+function relToggle(){$('#personInterest').hidden=$('#personRel').value!=='Other';}
+$('#personRel').addEventListener('change',relToggle);
 function openPerson(p){
-  const f=$('#formPerson');f.reset();fill(f,p||{method:'Bank transfer'});$('#personTitle').textContent=p?'Edit person':'New person';
+  const f=$('#formPerson');f.reset();fill(f,p||{method:'Bank transfer',relationship:'Friend',interestPer:'year'});relToggle();$('#personTitle').textContent=p?'Edit person':'New person';
   $('#dlgPerson').showModal();$('[name=name]',f).focus();
 }
 $('#formPerson').addEventListener('submit',e=>{e.preventDefault();const o=read(e.target);if(!o.name)return;const isNew=!o.id;
@@ -610,7 +672,10 @@ $('#formPerson').addEventListener('submit',e=>{e.preventDefault();const o=read(e
 const FREQ={month:[[1,'once'],[2,'twice'],[4,'4 times']],year:[[12,'12 times'],[6,'6 times'],[4,'4 times'],[3,'3 times'],[2,'twice'],[1,'once']]};
 function fillFreq(unit,val){$('#freqCount').innerHTML=FREQ[unit].map(([n,l])=>`<option value="${n}" ${n==val?'selected':''}>${l}</option>`).join('');}
 function populateLoanPeople(sel){const s=$('#loanPerson');s.innerHTML='<option value="">Choose a person…</option>'+[...db.people].sort((a,b)=>a.name.localeCompare(b.name)).map(p=>`<option value="${p.id}" ${p.id===sel?'selected':''}>${esc(p.name)}</option>`).join('')+'<option value="__new">+ Add a new person</option>';}
-$('#loanPerson').addEventListener('change',e=>{if(e.target.value==='__new'){e.target.value='';$('#formPerson').dataset.fromLoan='1';openPerson();}});
+function loanInterestToggle(prefill){const p=db.people.find(x=>x.id===$('#loanPerson').value);const other=!!p&&p.relationship==='Other';$('#loanInterest').hidden=!other;
+  if(other&&prefill){$('#formLoan [name=interestRate]').value=p.interestRate||'';$('#formLoan [name=interestPer]').value=p.interestPer||'year';}
+  if(!other){$('#formLoan [name=interestRate]').value='';}}
+$('#loanPerson').addEventListener('change',e=>{if(e.target.value==='__new'){e.target.value='';$('#formPerson').dataset.fromLoan='1';openPerson();return;}loanInterestToggle(true);preview();});
 let planMode='payoff';
 $$('#planMode button').forEach(b=>b.addEventListener('click',()=>{planMode=b.dataset.mode;$$('#planMode button').forEach(x=>x.classList.toggle('on',x===b));$('#fPayoff').hidden=planMode!=='payoff';$('#fInst').hidden=planMode!=='instalment';preview();}));
 $('#freqUnit').addEventListener('change',e=>{fillFreq(e.target.value,e.target.value==='month'?1:12);preview();});
@@ -620,14 +685,15 @@ function planFromForm(){
   if(!amount||!first)return null;
   let n;
   if(planMode==='payoff'){if(!o.payoffDate||o.payoffDate<first)return {err:'Pick a pay-off date on or after the first payment.'};n=countUntil(first,o.payoffDate,c,u);}
-  else{const inst=+o.instalment||0;if(!inst)return {err:'Enter the amount per payment.'};n=Math.max(1,Math.ceil(amount/inst-1e-9));}
-  return {n,per:amount/n,last:stepDate(first,n-1,c,u),c,u};
+  else{const inst=+o.instalment||0;if(!inst)return {err:'Enter the amount per payment.'};n=Math.max(1,Math.ceil(amount/inst-1e-9));const r0=$('#loanInterest').hidden?0:(+o.interestRate||0);for(let i=0;i<24&&r0>0;i++){const tot=amount+interestOf(amount,r0,o.interestPer||'year',o.loanDate||today(),stepDate(first,n-1,c,u));const n2=Math.max(1,Math.ceil(tot/inst-1e-9));if(n2===n)break;n=n2;}}
+  const last=stepDate(first,n-1,c,u);const rate=$('#loanInterest').hidden?0:(+o.interestRate||0);const interest=interestOf(amount,rate,o.interestPer||'year',o.loanDate||today(),last);
+  return {n,per:(amount+interest)/n,last,c,u,interest,total:round2(amount+interest),rate,per_:o.interestPer||'year'};
 }
 function preview(){
   const el=$('#planPreview');const pl=planFromForm();
   if(!pl){el.innerHTML='<span style="grid-column:1/-1">Enter the amount and first payment date to see the plan.</span>';return;}
   if(pl.err){el.innerHTML=`<span style="grid-column:1/-1">${pl.err}</span>`;return;}
-  el.innerHTML=`<div><span>Payments</span><b>${pl.n}</b></div><div><span>Each payment</span><b>${fmtMoney(pl.per)}</b></div><div><span>Schedule</span><b style="font-family:var(--sans)">${freqLabel(pl.c,pl.u)}</b></div><div><span>Paid off on</span><b style="font-family:var(--sans)">${fmtDate(pl.last)}</b></div>`;
+  el.innerHTML=`${pl.interest>0?`<div><span>Interest</span><b>${fmtMoney(pl.interest)}</b></div><div><span>Total repayable</span><b>${fmtMoney(pl.total)}</b></div>`:''}<div><span>Payments</span><b>${pl.n}</b></div><div><span>Each payment</span><b>${fmtMoney(pl.per)}</b></div><div><span>Schedule</span><b style="font-family:var(--sans)">${freqLabel(pl.c,pl.u)}</b></div><div><span>Paid off on</span><b style="font-family:var(--sans)">${fmtDate(pl.last)}</b></div>`;
 }
 function openLoan(l,personId){
   const f=$('#formLoan');f.reset();
@@ -637,11 +703,12 @@ function openLoan(l,personId){
   fill(f,l?{id:l.id,amount:l.amount,currency:l.currency,loanDate:l.loanDate,purpose:l.purpose,firstDue:l.firstDue,notes:l.notes,payoffDate:stepDate(l.firstDue,l.instalments-1,l.freqCount,l.freqUnit),instalment:round2(l.amount/l.instalments)}:{currency:db.settings.currency,loanDate:today(),firstDue:addMonths(today(),1),payoffDate:addMonths(today(),12)});
   $('#loanPerson').value=l?l.personId:(personId||'');$('#freqUnit').value=unit;$('#freqCount').value=l?l.freqCount:1;
   planMode='payoff';$$('#planMode button').forEach(x=>x.classList.toggle('on',x.dataset.mode==='payoff'));$('#fPayoff').hidden=false;$('#fInst').hidden=true;
-  $('#loanTitle').textContent=l?'Edit loan':'New loan';preview();$('#dlgLoan').showModal();
+  if(l){$('#formLoan [name=interestRate]').value=l.interestRate||'';$('#formLoan [name=interestPer]').value=l.interestPer||'year';}
+  loanInterestToggle(!l);$('#loanTitle').textContent=l?'Edit loan':'New loan';preview();$('#dlgLoan').showModal();
 }
 $('#formLoan').addEventListener('submit',e=>{e.preventDefault();const o=read(e.target);const pl=planFromForm();
   if(!o.personId){toast('Choose who you lent to.');return;}if(!pl||pl.err){toast(pl?.err||'Complete the repayment plan.');return;}
-  const rec={personId:o.personId,amount:round2(+o.amount),currency:o.currency,loanDate:o.loanDate,purpose:o.purpose,freqCount:pl.c,freqUnit:pl.u,firstDue:o.firstDue,instalments:pl.n,notes:o.notes};
+  const rec={personId:o.personId,amount:round2(+o.amount),currency:o.currency,loanDate:o.loanDate,purpose:o.purpose,freqCount:pl.c,freqUnit:pl.u,firstDue:o.firstDue,instalments:pl.n,notes:o.notes,interestRate:pl.rate,interestPer:pl.per_};
   let id=o.id;if(id){Object.assign(db.loans.find(x=>x.id===id),rec);}else{id=uid();db.loans.push(Object.assign({id,status:'active',createdAt:Date.now()},rec));}
   save();$('#dlgLoan').close();toast(o.id?'Loan updated':'Loan added');detail={type:'loan',id};render();window.scrollTo(0,0);
 });
@@ -670,10 +737,78 @@ $('#dlgPay').addEventListener('close',()=>{});
   const obs=new MutationObserver(()=>{b.hidden=!$('#formPay [name=id]').value;});obs.observe($('#dlgPay'),{attributes:true,attributeFilter:['open']});
 })();
 
+/* ---------- security: PIN + biometrics ---------- */
+const sec=()=>db.settings.security||(db.settings.security={pinHash:'',salt:'',bio:'',lockAfter:60});
+async function hashPin(pin,salt){
+  const txt=salt+':'+pin;
+  if(window.crypto&&crypto.subtle){try{const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(txt));return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');}catch(e){}}
+  let h=2166136261;for(let i=0;i<txt.length;i++){h^=txt.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}return 'fnv'+h.toString(16);
+}
+const rnd=n=>{const a=new Uint8Array(n);(window.crypto||{}).getRandomValues?crypto.getRandomValues(a):a.forEach((_,i)=>a[i]=Math.random()*256|0);return a;};
+const b64=a=>btoa(String.fromCharCode(...new Uint8Array(a)));const unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+const bioPossible=()=>!!(window.PublicKeyCredential&&navigator.credentials&&window.isSecureContext&&location.protocol.startsWith('http'));
+let padBuf='',padHandler=null,locked=false,hiddenAt=0;
+(function buildPad(){const pad=$('#lockPad');['1','2','3','4','5','6','7','8','9','',
+'0','⌫'].forEach(k=>{const b=document.createElement('button');b.type='button';if(k===''){b.disabled=true;b.className='fn';b.style.visibility='hidden';}else if(k==='⌫'){b.className='fn';b.textContent='Delete';b.setAttribute('aria-label','Delete');b.addEventListener('click',()=>{padBuf=padBuf.slice(0,-1);drawDots();});}else{b.textContent=k;b.addEventListener('click',()=>{if(padBuf.length>=4)return;padBuf+=k;drawDots();if(padBuf.length===4&&padHandler){const v=padBuf;setTimeout(()=>padHandler(v),80);}});}pad.appendChild(b);});
+  document.addEventListener('keydown',e=>{if($('#lock').hidden)return;if(/^[0-9]$/.test(e.key)&&padBuf.length<4){padBuf+=e.key;drawDots();if(padBuf.length===4&&padHandler){const v=padBuf;setTimeout(()=>padHandler(v),80);}}else if(e.key==='Backspace'){padBuf=padBuf.slice(0,-1);drawDots();}});
+})();
+function drawDots(){$$('#lockDots i').forEach((d,i)=>d.classList.toggle('on',i<padBuf.length));}
+function padReset(msg,bad){padBuf='';drawDots();const m=$('#lockMsg');m.textContent=msg||'';m.classList.toggle('bad',!!bad);if(bad){const d=$('#lockDots');d.classList.remove('shake');void d.offsetWidth;d.classList.add('shake');}}
+function showLock(title,handler,opts={}){$('#lockTitle').textContent=title;padHandler=handler;padReset(opts.msg||'');$('#lockBio').hidden=!opts.bio;$('#lockForgot').hidden=!opts.forgot;$('#lock').hidden=false;$('#app').setAttribute('aria-hidden','true');}
+function hideLock(){$('#lock').hidden=true;$('#app').removeAttribute('aria-hidden');padHandler=null;padBuf='';locked=false;}
+let failCount=0;
+function lockApp(){
+  const S=sec();if(!S.pinHash)return;locked=true;
+  showLock('Enter your PIN',async pin=>{const h=await hashPin(pin,S.salt);if(h===S.pinHash){failCount=0;hideLock();render();}else{failCount++;padReset(failCount>=3?'Wrong PIN. Forgot it? You can erase and start over.':'Wrong PIN, try again.',true);}},{bio:!!S.bio&&bioPossible(),forgot:true});$('#lockForgot').textContent='Forgot PIN?';forgotAction=eraseAction;
+  if(S.bio&&bioPossible())setTimeout(()=>bioUnlock(true),300);
+}
+async function bioUnlock(silent){
+  const S=sec();if(!S.bio)return;
+  try{const cred=await navigator.credentials.get({publicKey:{challenge:rnd(32),allowCredentials:[{type:'public-key',id:unb64(S.bio)}],userVerification:'required',timeout:60000}});if(cred){failCount=0;hideLock();render();}}
+  catch(e){if(!silent)padReset('Biometric check didn\'t complete — use your PIN.',true);}
+}
+$('#lockBio').addEventListener('click',()=>bioUnlock(false));
+let forgotAction=null;$('#lockForgot').addEventListener('click',()=>forgotAction&&forgotAction());
+const eraseAction=()=>{if(!confirm('Without the PIN the only way back in is to erase all data on this device. Restore from a backup afterwards if you have one.\n\nErase everything now?'))return;if(!confirm('Really erase all people, loans and payments?'))return;db={people:[],loans:[],payments:[],settings:Object.assign({},db.settings,{sample:false,security:{pinHash:'',salt:'',bio:'',lockAfter:60}})};save();hideLock();render();toast('Data erased');};
+const cancelAction=()=>{$('#lockForgot').textContent='Forgot PIN?';hideLock();};
+function setupPin(cb){
+  let first='';
+  showLock('Choose a 4-digit PIN',pin=>{if(!first){first=pin;padReset('Enter it again to confirm.');$('#lockTitle').textContent='Confirm PIN';}
+    else if(pin===first){const S=sec();S.salt=b64(rnd(12));hashPin(pin,S.salt).then(h=>{S.pinHash=h;save();hideLock();toast('PIN set');cb&&cb();render();});}
+    else{first='';$('#lockTitle').textContent='Choose a 4-digit PIN';padReset('PINs didn\'t match. Start again.',true);}},{});
+  $('#lockForgot').hidden=false;$('#lockForgot').textContent='Cancel';forgotAction=cancelAction;
+}
+function verifyPin(title,cb){showLock(title,async pin=>{const S=sec();if(await hashPin(pin,S.salt)===S.pinHash){hideLock();cb();}else padReset('Wrong PIN.',true);},{});
+  $('#lockForgot').hidden=false;$('#lockForgot').textContent='Cancel';forgotAction=cancelAction;}
+async function enableBio(){
+  const S=sec();
+  try{const cred=await navigator.credentials.create({publicKey:{challenge:rnd(32),rp:{name:'Lent Ledger'},user:{id:rnd(16),name:'owner',displayName:'Lent Ledger owner'},pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required',residentKey:'preferred'},timeout:60000}});
+    S.bio=b64(cred.rawId);save();toast('Biometric unlock on');render();}
+  catch(e){toast('Could not set up biometrics on this device — the PIN still works.');}
+}
+function secCard(){
+  const S=sec();const hasPin=!!S.pinHash;
+  return `<p class="help">Locks the app behind a 4-digit PIN${bioPossible()?', with fingerprint or Face ID as a shortcut':''}. It stops someone who picks up your phone from opening the ledger; your backup files are not encrypted, so keep those somewhere safe too.</p>
+  <div class="toggle"><span><b>PIN lock</b><br><span class="small muted">${hasPin?'On':'Off'}</span></span>${hasPin?'<span class="row"><button class="btn sm" id="secChangePin">Change PIN</button><button class="btn sm danger" id="secRemovePin">Turn off</button></span>':'<button class="btn sm primary" id="secSetPin">Set a PIN</button>'}</div>
+  ${hasPin?`<div class="toggle"><span><b>Fingerprint / Face ID</b><br><span class="small muted">${!bioPossible()?'Available in the installed (https) version of the app':S.bio?'On':'Off'}</span></span>${bioPossible()?`<input type="checkbox" id="secBio" ${S.bio?'checked':''}>`:''}</div>
+  <div class="toggle"><span><b>Lock after leaving the app</b></span><select id="secAfter" style="min-height:36px;border-radius:8px;border:1px solid var(--line-strong);background:var(--paper-2);padding:4px 8px"><option value="0" ${S.lockAfter==0?'selected':''}>Immediately</option><option value="60" ${S.lockAfter==60?'selected':''}>After 1 minute</option><option value="300" ${S.lockAfter==300?'selected':''}>After 5 minutes</option><option value="900" ${S.lockAfter==900?'selected':''}>After 15 minutes</option></select></div>`:''}`;
+}
+function bindSec(){
+  $('#secSetPin')?.addEventListener('click',()=>setupPin());
+  $('#secChangePin')?.addEventListener('click',()=>verifyPin('Enter current PIN',()=>setupPin()));
+  $('#secRemovePin')?.addEventListener('click',()=>verifyPin('Enter PIN to turn off the lock',()=>{const S=sec();S.pinHash='';S.salt='';S.bio='';save();render();toast('Lock turned off');}));
+  $('#secBio')?.addEventListener('change',e=>{if(e.target.checked)enableBio();else{sec().bio='';save();render();toast('Biometric unlock off');}});
+  $('#secAfter')?.addEventListener('change',e=>{sec().lockAfter=+e.target.value;save();});
+}
+
 /* ---------- toast & boot ---------- */
 let toastT;function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2600);}
-render();checkNotify();
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){render();checkNotify();}});
+render();checkNotify();if(sec().pinHash)lockApp();
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){hiddenAt=Date.now();return;}
+  const S=sec();if(S.pinHash&&!locked&&hiddenAt&&(Date.now()-hiddenAt)/1000>=(S.lockAfter??60))lockApp();
+  if(!locked){render();checkNotify();}
+});
 })();
 </script>
 <script>if("serviceWorker" in navigator && location.protocol.startsWith("http")){navigator.serviceWorker.register("sw.js").catch(()=>{});}</script>
