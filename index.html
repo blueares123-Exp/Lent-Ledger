@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Lent Ledger</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#0E6B54">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --paper:#F5F6F2; --paper-2:#FFFFFF; --paper-3:#EBEEE9; --line:#D9DED9; --line-strong:#B9C1BB;
+  --ink:#1A2127; --ink-2:#4A554F; --muted:#66716C;
+  --accent:#0E6B54; --accent-ink:#FFFFFF; --accent-soft:#DCEFE7;
+  --bad:#B4372B; --bad-soft:#F6E1DE; --warn:#A8720C; --warn-soft:#F7ECD3; --good:#0E6B54; --good-soft:#DCEFE7;
+  --shadow:0 12px 32px rgba(26,33,39,.14);
+  --display:"Fraunces",Georgia,"Times New Roman",serif;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#12191C; --paper-2:#1A2327; --paper-3:#222D32; --line:#2D3A40; --line-strong:#43535B;
+    --ink:#E8ECE9; --ink-2:#B7C1BB; --muted:#8B978F;
+    --accent:#4DC49B; --accent-ink:#0B1A14; --accent-soft:#1D3B31;
+    --bad:#E4796C; --bad-soft:#3E2320; --warn:#E0B054; --warn-soft:#3B3019; --good:#4DC49B; --good-soft:#1D3B31;
+    --shadow:0 12px 32px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#12191C; --paper-2:#1A2327; --paper-3:#222D32; --line:#2D3A40; --line-strong:#43535B;
+  --ink:#E8ECE9; --ink-2:#B7C1BB; --muted:#8B978F;
+  --accent:#4DC49B; --accent-ink:#0B1A14; --accent-soft:#1D3B31;
+  --bad:#E4796C; --bad-soft:#3E2320; --warn:#E0B054; --warn-soft:#3B3019; --good:#4DC49B; --good-soft:#1D3B31;
+  --shadow:0 12px 32px rgba(0,0,0,.45);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.45 var(--sans);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;overscroll-behavior-y:contain}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+h1,h2,h3{margin:0;font-family:var(--display);font-weight:600;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:26px;line-height:1.15}
+h2{font-size:20px;line-height:1.2}
+h3{font-size:17px;line-height:1.25}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.eyebrow{font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+
+#app{max-width:600px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;padding-bottom:calc(74px + env(safe-area-inset-bottom))}
+header.top{position:sticky;top:0;z-index:5;background:var(--paper);padding:calc(14px + env(safe-area-inset-top)) 18px 10px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line)}
+header.top .brand{display:flex;flex-direction:column;gap:2px}
+header.top .brand h1{font-size:22px}
+main{padding:16px 18px 24px;display:flex;flex-direction:column;gap:18px}
+.view{display:none;flex-direction:column;gap:18px}
+.view.active{display:flex}
+
+/* bottom nav */
+nav.tabs{position:fixed;bottom:0;left:0;right:0;z-index:6;background:var(--paper-2);border-top:1px solid var(--line);padding:6px 0 calc(6px + env(safe-area-inset-bottom))}
+nav.tabs .inner{max-width:600px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
+nav.tabs button{background:none;border:0;padding:6px 2px 4px;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);font-size:11px;font-weight:500;border-radius:10px}
+nav.tabs button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+nav.tabs button.on{color:var(--accent)}
+nav.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+nav.tabs .badge{position:absolute;transform:translate(14px,-4px);background:var(--bad);color:#fff;font-size:10px;font-weight:600;min-width:16px;height:16px;border-radius:8px;padding:0 4px;display:flex;align-items:center;justify-content:center}
+nav.tabs button{position:relative}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line-strong);background:var(--paper-2);border-radius:10px;padding:9px 14px;font-weight:500;font-size:14px;line-height:1.2;min-height:40px;white-space:nowrap}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.danger{color:var(--bad);border-color:var(--bad)}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.sm{padding:6px 10px;min-height:32px;font-size:13px;border-radius:8px}
+.btn.block{width:100%}
+.btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.btn:disabled{opacity:.5;cursor:default}
+.actions .btn{white-space:normal;text-align:center;flex:1 1 220px}
+.row{display:flex;gap:10px;align-items:center}
+.row.wrap{flex-wrap:wrap}
+.row.between{justify-content:space-between}
+.grow{flex:1;min-width:0}
+
+/* balance hero */
+.hero{background:var(--paper-2);border:1px solid var(--line);border-radius:18px;padding:18px 18px 16px;display:flex;flex-direction:column;gap:14px}
+.hero .big{font-family:var(--mono);font-size:34px;line-height:1.05;font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.hero .cur{font-size:16px;color:var(--muted);margin-right:6px;font-family:var(--sans)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--line);padding-top:12px}
+.stats div{display:flex;flex-direction:column;gap:2px;padding:0 10px;border-left:1px solid var(--line)}
+.stats div:first-child{padding-left:0;border-left:0}
+.stats .v{font-family:var(--mono);font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stats .eyebrow{white-space:nowrap}
+.stats .v.bad{color:var(--bad)}
+.bar{height:6px;border-radius:3px;background:var(--paper-3);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:3px;transition:width .3s}
+
+/* lists */
+.section{display:flex;flex-direction:column;gap:10px}
+.section-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--r);background:var(--paper-2);overflow:hidden}
+.item{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid var(--line);text-align:left;background:none;border-left:0;border-right:0;border-bottom:0;width:100%;color:inherit}
+.item:first-child{border-top:0}
+.item:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.item .t{font-weight:500;display:flex;align-items:center;gap:8px;min-width:0}
+.item .t span.name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .s{font-size:13px;color:var(--muted);margin-top:2px}
+.item .amt{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;font-size:15px}
+.item .amt small{display:block;font-family:var(--sans);font-size:12px;color:var(--muted)}
+.avatar{width:38px;height:38px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:600;font-size:16px;flex-shrink:0}
+.stripe{width:6px;height:38px;border-radius:3px;background:var(--line-strong)}
+.stripe.overdue{background:var(--bad)} .stripe.due{background:var(--warn)} .stripe.ok{background:var(--good)} .stripe.paid{background:var(--line)}
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--paper-3);color:var(--ink-2);white-space:nowrap;letter-spacing:.02em}
+.pill.overdue{background:var(--bad-soft);color:var(--bad)} .pill.due{background:var(--warn-soft);color:var(--warn)} .pill.ok{background:var(--good-soft);color:var(--good)} .pill.paid{background:var(--paper-3);color:var(--muted)}
+.empty{padding:26px 16px;text-align:center;color:var(--muted);border:1px dashed var(--line-strong);border-radius:var(--r);display:flex;flex-direction:column;gap:8px;align-items:center}
+.notice{background:var(--warn-soft);color:var(--ink);border:1px solid color-mix(in srgb,var(--warn) 40%,transparent);border-radius:12px;padding:10px 12px;font-size:13.5px;display:flex;gap:10px;align-items:center;justify-content:space-between}
+.notice.bad{background:var(--bad-soft);border-color:color-mix(in srgb,var(--bad) 40%,transparent)}
+.notice.good{background:var(--good-soft);border-color:color-mix(in srgb,var(--good) 40%,transparent)}
+
+/* detail */
+.card{background:var(--paper-2);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.kv{display:grid;grid-template-columns:minmax(110px,38%) 1fr;gap:6px 12px;font-size:14px}
+.kv dt{color:var(--muted);margin:0}
+.kv dd{margin:0;word-break:break-word}
+.kv dd.num{font-size:13.5px}
+.sched{width:100%;border-collapse:collapse;font-size:13.5px}
+.sched th{text-align:left;font-weight:600;color:var(--muted);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;padding:6px 6px;border-bottom:1px solid var(--line)}
+.sched td{padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+.sched tr:last-child td{border-bottom:0}
+.sched td.r{text-align:right}
+.sched tr.paid td{color:var(--muted)}
+.scroll{overflow-x:auto}
+.back{display:inline-flex;align-items:center;gap:4px;color:var(--accent);background:none;border:0;padding:0;font-weight:500}
+.back svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* forms / sheets */
+dialog.sheet{border:0;padding:0;background:transparent;max-width:none;width:100%;max-height:100dvh;margin:0;position:fixed;inset:auto 0 0 0}
+dialog.sheet::backdrop{background:rgba(10,16,18,.5)}
+dialog.sheet .panel{max-width:600px;margin:0 auto;background:var(--paper);border-radius:22px 22px 0 0;box-shadow:var(--shadow);max-height:92dvh;display:flex;flex-direction:column;border:1px solid var(--line)}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 8px;gap:10px}
+.sheet-body{overflow-y:auto;padding:6px 18px 12px;display:flex;flex-direction:column;gap:14px}
+.sheet-foot{padding:10px 18px calc(14px + env(safe-area-inset-bottom));display:flex;gap:10px;border-top:1px solid var(--line);background:var(--paper)}
+.sheet-foot .btn{flex:1}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:13px;font-weight:500;color:var(--ink-2)}
+.field .hint{font-size:12px;color:var(--muted)}
+.field input,.field select,.field textarea{width:100%;background:var(--paper-2);border:1px solid var(--line-strong);border-radius:10px;padding:10px 12px;font-size:16px;line-height:1.3;min-height:44px}
+.field textarea{min-height:70px;resize:vertical}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+.field input.mono{font-family:var(--mono)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+fieldset{border:1px solid var(--line);border-radius:12px;padding:10px 12px 12px;margin:0;display:flex;flex-direction:column;gap:12px}
+legend{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:0 6px}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--paper-3);border-radius:10px;padding:3px;gap:3px}
+.seg button{border:0;background:transparent;border-radius:8px;padding:8px 6px;font-size:13.5px;font-weight:500;color:var(--muted)}
+.seg button.on{background:var(--paper-2);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.preview{background:var(--accent-soft);border-radius:12px;padding:12px 14px;display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;font-size:13.5px}
+.preview b{font-family:var(--mono);font-weight:500;display:block;font-size:15px;color:var(--ink)}
+.preview span{color:var(--ink-2)}
+.toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:12px;font-size:14px;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .2s;z-index:20;max-width:90vw;text-align:center}
+.toast.show{opacity:1}
+.toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.toggle:first-child{border-top:0}
+.toggle input{width:20px;height:20px;accent-color:var(--accent)}
+.settings .list{padding:0 14px}
+.help{font-size:13.5px;color:var(--ink-2);line-height:1.5}
+.help p{margin:0 0 8px}
+.help ol{margin:0;padding-left:18px}
+.help li{margin-bottom:4px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+@media (min-width:640px){body{padding:24px 0}#app{border:1px solid var(--line);border-radius:26px;overflow:hidden;background:var(--paper);min-height:calc(100vh - 48px)}nav.tabs{position:sticky;bottom:0}}
+</style>
+
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <div class="brand">
+      <span class="eyebrow" id="hdrEyebrow">Money you've lent</span>
+      <h1 id="hdrTitle">Lent Ledger</h1>
+    </div>
+    <div class="row" id="hdrActions"></div>
+  </header>
+  <main>
+    <section class="view active" id="view-home"></section>
+    <section class="view" id="view-people"></section>
+    <section class="view" id="view-loans"></section>
+    <section class="view" id="view-remind"></section>
+    <section class="view" id="view-more"></section>
+    <section class="view" id="view-detail"></section>
+  </main>
+  <nav class="tabs" aria-label="Main">
+    <div class="inner">
+      <button data-tab="home" class="on"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/></svg>Home</button>
+      <button data-tab="people"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>People</button>
+      <button data-tab="loans"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg>Loans</button>
+      <button data-tab="remind"><svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/></svg>Reminders<span class="badge" id="remBadge" hidden></span></button>
+      <button data-tab="more"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>More</button>
+    </div>
+  </nav>
+</div>
+
+<!-- Person form -->
+<dialog class="sheet" id="dlgPerson">
+  <form class="panel" method="dialog" id="formPerson">
+    <div class="sheet-head"><h2 id="personTitle">New person</h2><button type="button" class="btn ghost sm" data-close>Cancel</button></div>
+    <div class="sheet-body">
+      <input type="hidden" name="id">
+      <div class="field"><label>Full name *</label><input name="name" required autocomplete="off" placeholder="e.g. Rahul Menon"></div>
+      <div class="grid2">
+        <div class="field"><label>Phone</label><input name="phone" type="tel" inputmode="tel" placeholder="+971 50 …"></div>
+        <div class="field"><label>Relationship</label><input name="relationship" placeholder="Friend, cousin, colleague"></div>
+      </div>
+      <div class="field"><label>Email</label><input name="email" type="email" placeholder="optional"></div>
+      <fieldset><legend>Bank account</legend>
+        <div class="field"><label>Bank name</label><input name="bankName" placeholder="e.g. Emirates NBD"></div>
+        <div class="field"><label>Account holder name</label><input name="accountName" placeholder="Name as on the account"></div>
+        <div class="field"><label>Account number</label><input name="accountNumber" class="mono" inputmode="numeric" autocomplete="off"></div>
+        <div class="field"><label>IBAN</label><input name="iban" class="mono" autocomplete="off" placeholder="AE…"></div>
+        <div class="grid2">
+          <div class="field"><label>SWIFT / BIC</label><input name="swift" class="mono" autocomplete="off"></div>
+          <div class="field"><label>Preferred method</label><select name="method"><option>Bank transfer</option><option>Cash</option><option>Cheque</option><option>Mobile wallet</option><option>Other</option></select></div>
+        </div>
+      </fieldset>
+      <fieldset><legend>Identification &amp; contact</legend>
+        <div class="field"><label>ID / passport reference</label><input name="idRef" class="mono" autocomplete="off" placeholder="optional"><span class="hint">Keep only what you need — this stays on your device.</span></div>
+        <div class="field"><label>Address</label><textarea name="address" rows="2"></textarea></div>
+        <div class="field"><label>Guarantor / emergency contact</label><input name="guarantor" placeholder="Name and phone, optional"></div>
+      </fieldset>
+      <div class="field"><label>Notes</label><textarea name="notes" placeholder="Anything else worth remembering"></textarea></div>
+    </div>
+    <div class="sheet-foot"><button type="submit" class="btn primary">Save person</button></div>
+  </form>
+</dialog>
+
+<!-- Loan form -->
+<dialog class="sheet" id="dlgLoan">
+  <form class="panel" method="dialog" id="formLoan">
+    <div class="sheet-head"><h2 id="loanTitle">New loan</h2><button type="button" class="btn ghost sm" data-close>Cancel</button></div>
+    <div class="sheet-body">
+      <input type="hidden" name="id">
+      <div class="field"><label>Person *</label><select name="personId" required id="loanPerson"></select></div>
+      <div class="grid2">
+        <div class="field"><label>Amount loaned *</label><input name="amount" class="mono" type="number" inputmode="decimal" min="0.01" step="0.01" required placeholder="0.00"></div>
+        <div class="field"><label>Currency</label><select name="currency" id="loanCurrency"></select></div>
+      </div>
+      <div class="field"><label>Date loaned</label><input name="loanDate" type="date" required><span class="hint">Defaults to today. Pick an earlier date for loans made in the past.</span></div>
+      <div class="field"><label>Purpose</label><input name="purpose" placeholder="e.g. Car repair, medical, business"></div>
+      <fieldset><legend>Repayment plan</legend>
+        <div class="field"><label>How often does the person pay?</label>
+          <div class="grid2">
+            <select name="freqCount" id="freqCount"></select>
+            <select name="freqUnit" id="freqUnit"><option value="month">per month</option><option value="year">per year</option></select>
+          </div>
+        </div>
+        <div class="field"><label>First / next payment date *</label><input name="firstDue" type="date" required><span class="hint">Each payment after this repeats on the same schedule until the loan is paid off.</span></div>
+        <div class="field"><label>Plan by</label>
+          <div class="seg" id="planMode"><button type="button" data-mode="payoff" class="on">Pay-off date</button><button type="button" data-mode="instalment">Amount per payment</button></div>
+        </div>
+        <div class="field" id="fPayoff"><label>Loan should be fully paid by</label><input name="payoffDate" type="date"></div>
+        <div class="field" id="fInst" hidden><label>Amount per payment</label><input name="instalment" class="mono" type="number" inputmode="decimal" min="0.01" step="0.01"></div>
+        <div class="preview" id="planPreview"></div>
+      </fieldset>
+      <div class="field"><label>Agreement / terms notes</label><textarea name="notes" placeholder="Witnesses, signed agreement, grace period, anything agreed verbally"></textarea></div>
+    </div>
+    <div class="sheet-foot"><button type="submit" class="btn primary">Save loan</button></div>
+  </form>
+</dialog>
+
+<!-- Payment form -->
+<dialog class="sheet" id="dlgPay">
+  <form class="panel" method="dialog" id="formPay">
+    <div class="sheet-head"><h2 id="payTitle">Record payment</h2><button type="button" class="btn ghost sm" data-close>Cancel</button></div>
+    <div class="sheet-body">
+      <input type="hidden" name="id"><input type="hidden" name="loanId">
+      <div class="notice good" id="payContext"></div>
+      <div class="grid2">
+        <div class="field"><label>Amount received *</label><input name="amount" class="mono" type="number" inputmode="decimal" min="0.01" step="0.01" required></div>
+        <div class="field"><label>Date received</label><input name="date" type="date" required></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Method</label><select name="method"><option>Bank transfer</option><option>Cash</option><option>Cheque</option><option>Mobile wallet</option><option>Other</option></select></div>
+        <div class="field"><label>Reference</label><input name="ref" class="mono" placeholder="Txn ID, optional"></div>
+      </div>
+      <div class="field"><label>Note</label><input name="note" placeholder="Paid early, partial, etc."></div>
+    </div>
+    <div class="sheet-foot"><button type="submit" class="btn primary">Save payment</button></div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+'use strict';
+const KEY='lentledger.v1';
+const CURRENCIES=['AED','INR','USD','EUR','GBP','SAR','QAR','OMR','KWD','BHD','PKR','PHP','EGP','LKR','BDT','NPR'];
+const uid=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
+const $=(s,el=document)=>el.querySelector(s);
+const $$=(s,el=document)=>[...el.querySelectorAll(s)];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- dates (all local, ISO yyyy-mm-dd) ---------- */
+const pad=n=>String(n).padStart(2,'0');
+const toISO=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const today=()=>toISO(new Date());
+const parse=s=>{const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d);};
+const addMonths=(iso,n)=>{const d=parse(iso);const day=d.getDate();const t=new Date(d.getFullYear(),d.getMonth()+n,1);const last=new Date(t.getFullYear(),t.getMonth()+1,0).getDate();t.setDate(Math.min(day,last));return toISO(t);};
+const addDays=(iso,n)=>{const d=parse(iso);d.setDate(d.getDate()+n);return toISO(d);};
+const daysBetween=(a,b)=>Math.round((parse(b)-parse(a))/864e5);
+const fmtDate=iso=>{if(!iso)return '—';return parse(iso).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'});};
+const fmtShort=iso=>parse(iso).toLocaleDateString(undefined,{day:'numeric',month:'short'});
+
+/* ---------- money ---------- */
+const fmtMoney=(n,cur)=>{const v=Math.abs(n)<0.005?0:n;try{return new Intl.NumberFormat(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}).format(v)+(cur?' '+cur:'');}catch(e){return v.toFixed(2)+' '+cur;}};
+const round2=n=>Math.round(n*100)/100;
+
+/* ---------- storage ---------- */
+let db=load();
+function load(){
+  try{const raw=localStorage.getItem(KEY);if(raw){const d=JSON.parse(raw);return Object.assign({people:[],loans:[],payments:[],settings:{}},d,{settings:Object.assign({currency:'AED',daysBefore:3,notify:false,sample:false},d.settings||{})});}}catch(e){}
+  const d={people:[],loans:[],payments:[],settings:{currency:'AED',daysBefore:3,notify:false,sample:true}};
+  seed(d);return d;
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(db));}catch(e){toast('Could not save — storage is full or blocked.');}}
+function seed(d){
+  const p1={id:'p_sample1',name:'Rahul Menon',phone:'+971 50 123 4567',relationship:'Friend',bankName:'Emirates NBD',accountName:'Rahul Menon',accountNumber:'1012345678901',iban:'AE07 0260 0010 1234 5678 901',method:'Bank transfer',notes:'Example entry — delete from More › Clear example data',createdAt:Date.now()};
+  const p2={id:'p_sample2',name:'Priya Nair',phone:'+91 98765 43210',relationship:'Cousin',bankName:'HDFC Bank',accountName:'Priya S Nair',accountNumber:'50100123456789',method:'Bank transfer',notes:'Example entry',createdAt:Date.now()};
+  const t=today();
+  const l1={id:'l_sample1',personId:'p_sample1',amount:12000,currency:'AED',loanDate:addMonths(t,-4),purpose:'Car repair',freqCount:1,freqUnit:'month',firstDue:addMonths(addDays(t,-10),-3),instalments:12,notes:'Agreed verbally, WhatsApp record kept',status:'active',createdAt:Date.now()};
+  const l2={id:'l_sample2',personId:'p_sample2',amount:50000,currency:'INR',loanDate:addMonths(t,-1),purpose:'Laptop for studies',freqCount:2,freqUnit:'month',firstDue:addDays(t,5),instalments:10,notes:'',status:'active',createdAt:Date.now()};
+  d.people.push(p1,p2);d.loans.push(l1,l2);
+  d.payments.push({id:'pay_s1',loanId:'l_sample1',date:l1.firstDue,amount:1000,method:'Bank transfer',ref:'',note:''},{id:'pay_s2',loanId:'l_sample1',date:addMonths(l1.firstDue,1),amount:1000,method:'Cash',ref:'',note:''});
+}
+
+/* ---------- schedule engine ---------- */
+function stepDate(first,k,count,unit){
+  // k-th payment date (k=0 is first)
+  if(unit==='year'){const m=12/count;if(Number.isInteger(m))return addMonths(first,k*m);return addDays(first,Math.round(k*365/count));}
+  if(count===1)return addMonths(first,k);
+  const whole=Math.floor(k/count),part=k%count;
+  return addDays(addMonths(first,whole),Math.round(part*30/count));
+}
+function freqLabel(count,unit){
+  if(unit==='month')return count===1?'Monthly':count===2?'Twice a month':count===4?'Weekly (4 / month)':`${count} × per month`;
+  const map={1:'Yearly',2:'Every 6 months',3:'Every 4 months',4:'Quarterly',6:'Every 2 months',12:'Monthly'};return map[count]||`${count} × per year`;
+}
+function countUntil(first,payoff,count,unit){let k=0;while(stepDate(first,k,count,unit)<=payoff&&k<600)k++;return Math.max(1,k);}
+function schedule(loan){
+  const pays=db.payments.filter(p=>p.loanId===loan.id).sort((a,b)=>a.date<b.date?-1:1);
+  const paidTotal=round2(pays.reduce((s,p)=>s+Number(p.amount),0));
+  const n=Math.max(1,loan.instalments|0);
+  const base=Math.floor(loan.amount/n*100)/100;
+  const rows=[];let remaining=paidTotal;const t=today();
+  for(let k=0;k<n;k++){
+    const due=k===n-1?round2(loan.amount-base*(n-1)):base;
+    const date=stepDate(loan.firstDue,k,loan.freqCount,loan.freqUnit);
+    const applied=Math.min(due,Math.max(0,remaining));remaining=round2(remaining-applied);
+    let state=applied>=due-0.004?'paid':date<t?'overdue':daysBetween(t,date)<=db.settings.daysBefore?'due':'upcoming';
+    if(state!=='paid'&&applied>0)state=state==='overdue'?'overdue':state;
+    rows.push({k,date,due,applied:round2(applied),state});
+  }
+  const outstanding=round2(loan.amount-paidTotal);
+  const next=rows.find(r=>r.state!=='paid')||null;
+  const overdueAmt=round2(rows.filter(r=>r.state==='overdue').reduce((s,r)=>s+r.due-r.applied,0));
+  const paidOff=outstanding<=0.004;
+  const status=paidOff?'paid':overdueAmt>0?'overdue':next&&next.state==='due'?'due':'ok';
+  return {rows,pays,paidTotal,outstanding:Math.max(0,outstanding),next,overdueAmt,status,payoffDate:rows[n-1].date};
+}
+const personOf=id=>db.people.find(p=>p.id===id)||{name:'(deleted person)'};
+const initials=n=>n.trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
+
+/* ---------- navigation ---------- */
+let tab='home',detail=null; // detail: {type:'person'|'loan', id}
+const views={home:'view-home',people:'view-people',loans:'view-loans',remind:'view-remind',more:'view-more'};
+$$('nav.tabs button').forEach(b=>b.addEventListener('click',()=>{tab=b.dataset.tab;detail=null;render();window.scrollTo(0,0);}));
+function render(){
+  $$('.view').forEach(v=>v.classList.remove('active'));
+  $$('nav.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
+  const acts=$('#hdrActions');acts.innerHTML='';
+  const titles={home:['Money you\'ve lent','Lent Ledger'],people:['Borrowers','People'],loans:['All loans','Loans'],remind:['Payments to chase','Reminders'],more:['Settings & backup','More']};
+  if(detail){$('#view-detail').classList.add('active');detail.type==='person'?renderPerson(detail.id):renderLoan(detail.id);}
+  else{$('#'+views[tab]).classList.add('active');$('#hdrEyebrow').textContent=titles[tab][0];$('#hdrTitle').textContent=titles[tab][1];({home:renderHome,people:renderPeople,loans:renderLoans,remind:renderRemind,more:renderMore})[tab]();}
+  const overdueCount=db.loans.filter(l=>l.status!=='closed').map(schedule).filter(s=>s.status==='overdue'||s.status==='due').length;
+  const badge=$('#remBadge');badge.hidden=!overdueCount;badge.textContent=overdueCount;
+}
+function headerBtn(label,fn,primary){const b=document.createElement('button');b.className='btn sm'+(primary?' primary':'');b.innerHTML=label;b.addEventListener('click',fn);$('#hdrActions').appendChild(b);}
+const plusSvg='<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>';
+
+/* ---------- home ---------- */
+function totals(){
+  const byCur={};
+  db.loans.filter(l=>l.status!=='closed').forEach(l=>{const s=schedule(l);const c=byCur[l.currency]||(byCur[l.currency]={lent:0,paid:0,out:0,overdue:0});c.lent+=l.amount;c.paid+=s.paidTotal;c.out+=s.outstanding;c.overdue+=s.overdueAmt;});
+  return byCur;
+}
+function renderHome(){
+  const v=$('#view-home');headerBtn(plusSvg+' Loan',()=>openLoan(),true);
+  const byCur=totals();const curs=Object.keys(byCur);
+  let html='';
+  if(db.settings.sample)html+=`<div class="notice"><span>Showing example data so you can see how it works.</span><button class="btn sm" id="clearSample">Clear examples</button></div>`;
+  if(!curs.length){html+=`<div class="empty"><h3>Nothing lent yet</h3><span>Add a person, then record the loan you gave them.</span><button class="btn primary" id="emptyAddPerson">Add a person</button></div>`;}
+  curs.forEach(c=>{const t=byCur[c];const pct=t.lent?Math.min(100,t.paid/t.lent*100):0;
+    html+=`<div class="hero"><div><span class="eyebrow">Outstanding</span><div class="big"><span class="cur">${c}</span>${fmtMoney(t.out)}</div></div>
+    <div class="bar"><i style="width:${pct.toFixed(1)}%"></i></div>
+    <div class="stats"><div><span class="eyebrow">Lent</span><span class="v">${fmtMoney(t.lent)}</span></div><div><span class="eyebrow">Recovered</span><span class="v">${fmtMoney(t.paid)}</span></div><div><span class="eyebrow">Overdue</span><span class="v ${t.overdue>0?'bad':''}">${fmtMoney(t.overdue)}</span></div></div></div>`;});
+  const active=db.loans.filter(l=>l.status!=='closed').map(l=>({l,s:schedule(l)})).filter(x=>x.s.status!=='paid').sort((a,b)=>(a.s.next?.date||'9')<(b.s.next?.date||'9')?-1:1);
+  const attention=active.filter(x=>x.s.status==='overdue'||x.s.status==='due');
+  if(attention.length){html+=`<div class="section"><div class="section-head"><h2>Needs attention</h2><span class="small muted">${attention.length} loan${attention.length>1?'s':''}</span></div><div class="list">${attention.map(loanItem).join('')}</div></div>`;}
+  const upcoming=active.filter(x=>x.s.status==='ok').slice(0,5);
+  if(upcoming.length){html+=`<div class="section"><div class="section-head"><h2>Coming up</h2></div><div class="list">${upcoming.map(loanItem).join('')}</div></div>`;}
+  v.innerHTML=html;
+  $('#clearSample')?.addEventListener('click',clearSample);
+  $('#emptyAddPerson')?.addEventListener('click',()=>openPerson());
+  bindItems(v);
+}
+function loanItem({l,s}){
+  const p=personOf(l.personId);
+  if(l.status==='closed')return `<button class="item" data-loan="${l.id}"><span class="stripe paid"></span><span class="grow"><span class="t"><span class="name">${esc(p.name)}</span><span class="pill paid">Closed</span></span><span class="s">Closed with ${fmtMoney(s.outstanding,l.currency)} unpaid${l.purpose?' · '+esc(l.purpose):''}</span></span><span class="amt">${fmtMoney(s.paidTotal)}<small>of ${fmtMoney(l.amount,l.currency)}</small></span></button>`;
+  const sub=s.status==='paid'?`Paid off · ${fmtDate(s.payoffDate)}`:s.status==='overdue'?`${fmtMoney(s.overdueAmt,l.currency)} overdue · due ${fmtShort(s.next.date)}`:s.next?`Next ${fmtMoney(s.next.due-s.next.applied,l.currency)} on ${fmtDate(s.next.date)}`:'';
+  return `<button class="item" data-loan="${l.id}"><span class="stripe ${s.status}"></span><span class="grow"><span class="t"><span class="name">${esc(p.name)}</span><span class="pill ${s.status}">${({paid:'Paid',overdue:'Overdue',due:'Due soon',ok:'On track'})[s.status]}</span></span><span class="s">${sub}${l.purpose?' · '+esc(l.purpose):''}</span></span><span class="amt">${fmtMoney(s.outstanding)}<small>of ${fmtMoney(l.amount,l.currency)}</small></span></button>`;
+}
+function bindItems(root){
+  $$('[data-loan]',root).forEach(b=>b.addEventListener('click',()=>{detail={type:'loan',id:b.dataset.loan};render();window.scrollTo(0,0);}));
+  $$('[data-person]',root).forEach(b=>b.addEventListener('click',()=>{detail={type:'person',id:b.dataset.person};render();window.scrollTo(0,0);}));
+}
+
+/* ---------- people ---------- */
+function renderPeople(){
+  const v=$('#view-people');headerBtn(plusSvg+' Person',()=>openPerson(),true);
+  const people=[...db.people].sort((a,b)=>a.name.localeCompare(b.name));
+  if(!people.length){v.innerHTML=`<div class="empty"><h3>No people yet</h3><span>Each borrower gets a profile with contact and bank details.</span></div>`;return;}
+  v.innerHTML=`<div class="list">${people.map(p=>{const loans=db.loans.filter(l=>l.personId===p.id&&l.status!=='closed');const out={};let worst='paid';loans.forEach(l=>{const s=schedule(l);out[l.currency]=(out[l.currency]||0)+s.outstanding;if(s.status==='overdue')worst='overdue';else if(s.status==='due'&&worst!=='overdue')worst='due';else if(s.status==='ok'&&worst==='paid')worst='ok';});
+    const outStr=Object.entries(out).filter(([,n])=>n>0).map(([c,n])=>fmtMoney(n,c)).join(' + ')||'Nothing outstanding';
+    return `<button class="item" data-person="${p.id}"><span class="avatar">${initials(p.name)}</span><span class="grow"><span class="t"><span class="name">${esc(p.name)}</span>${worst==='overdue'?'<span class="pill overdue">Overdue</span>':worst==='due'?'<span class="pill due">Due soon</span>':''}</span><span class="s">${loans.length?loans.length+' active loan'+(loans.length>1?'s':''):'No active loans'}${p.relationship?' · '+esc(p.relationship):''}</span></span><span class="amt small">${outStr}</span></button>`;}).join('')}</div>`;
+  bindItems(v);
+}
+function renderPerson(id){
+  const p=db.people.find(x=>x.id===id);if(!p){detail=null;return render();}
+  $('#hdrEyebrow').textContent=p.relationship||'Borrower';$('#hdrTitle').textContent=p.name;
+  headerBtn('Edit',()=>openPerson(p));headerBtn(plusSvg+' Loan',()=>openLoan(null,p.id),true);
+  const loans=db.loans.filter(l=>l.personId===id).map(l=>({l,s:schedule(l)})).sort((a,b)=>a.l.loanDate<b.l.loanDate?1:-1);
+  const kv=[['Phone',p.phone&&`<a href="tel:${esc(p.phone)}">${esc(p.phone)}</a>`],['Email',p.email&&`<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>`],['Address',p.address],['Guarantor',p.guarantor],['ID reference',p.idRef&&`<span class="num">${esc(p.idRef)}</span>`],['Notes',p.notes]].filter(([,v])=>v);
+  const bank=[['Bank',esc(p.bankName)],['Account name',esc(p.accountName)],['Account no.',p.accountNumber&&`<span class="num">${esc(p.accountNumber)}</span>`],['IBAN',p.iban&&`<span class="num">${esc(p.iban)}</span>`],['SWIFT',p.swift&&`<span class="num">${esc(p.swift)}</span>`],['Pays by',esc(p.method)]].filter(([,v])=>v);
+  $('#view-detail').innerHTML=`<button class="back" id="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>Back</button>
+  <div class="section"><div class="section-head"><h2>Loans</h2></div>${loans.length?`<div class="list">${loans.map(loanItem).join('')}</div>`:`<div class="empty"><span>No loans recorded for ${esc(p.name)} yet.</span></div>`}</div>
+  <div class="card"><h3>Bank account</h3>${bank.length?`<dl class="kv">${bank.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`:'<span class="muted small">No bank details saved.</span>'}</div>
+  <div class="card"><h3>Contact &amp; details</h3>${kv.length?`<dl class="kv">${kv.map(([k,v])=>`<dt>${k}</dt><dd>${v.startsWith('<')?v:esc(v)}</dd>`).join('')}</dl>`:'<span class="muted small">Nothing else on file.</span>'}</div>
+  <button class="btn danger block" id="delPerson">Delete person and their loans</button>`;
+  $('#back').addEventListener('click',()=>{detail=null;tab='people';render();});
+  $('#delPerson').addEventListener('click',()=>{if(!confirm(`Delete ${p.name} and all their loans and payments? This cannot be undone.`))return;const ids=db.loans.filter(l=>l.personId===id).map(l=>l.id);db.loans=db.loans.filter(l=>l.personId!==id);db.payments=db.payments.filter(x=>!ids.includes(x.loanId));db.people=db.people.filter(x=>x.id!==id);save();detail=null;tab='people';render();toast('Person deleted');});
+  bindItems($('#view-detail'));
+}
+
+/* ---------- loans ---------- */
+function renderLoans(){
+  const v=$('#view-loans');headerBtn(plusSvg+' Loan',()=>openLoan(),true);
+  const all=db.loans.map(l=>({l,s:schedule(l)}));
+  const active=all.filter(x=>x.s.status!=='paid'&&x.l.status!=='closed').sort((a,b)=>(a.s.next?.date||'9')<(b.s.next?.date||'9')?-1:1);
+  const done=all.filter(x=>x.s.status==='paid'||x.l.status==='closed');
+  if(!all.length){v.innerHTML=`<div class="empty"><h3>No loans yet</h3><span>Record what you lent, when, and how it will be repaid.</span></div>`;return;}
+  v.innerHTML=`${active.length?`<div class="section"><div class="section-head"><h2>Active</h2><span class="small muted">${active.length}</span></div><div class="list">${active.map(loanItem).join('')}</div></div>`:''}
+  ${done.length?`<div class="section"><div class="section-head"><h2>Paid off / closed</h2><span class="small muted">${done.length}</span></div><div class="list">${done.map(loanItem).join('')}</div></div>`:''}`;
+  bindItems(v);
+}
+function renderLoan(id){
+  const l=db.loans.find(x=>x.id===id);if(!l){detail=null;return render();}
+  const p=personOf(l.personId),s=schedule(l);
+  $('#hdrEyebrow').textContent='Loan to '+p.name;$('#hdrTitle').textContent=fmtMoney(l.amount,l.currency);
+  headerBtn('Edit',()=>openLoan(l));if(s.status!=='paid'&&l.status!=='closed')headerBtn(plusSvg+' Payment',()=>openPay(l),true);
+  const pct=l.amount?Math.min(100,s.paidTotal/l.amount*100):0;
+  const stateLine=s.status==='paid'?`<div class="notice good"><span>Fully repaid. Last payment ${fmtDate(s.pays.at(-1)?.date)}.</span></div>`:s.status==='overdue'?`<div class="notice bad"><span><b>${fmtMoney(s.overdueAmt,l.currency)} overdue.</b> ${s.rows.filter(r=>r.state==='overdue').length} payment(s) missed — oldest due ${fmtDate(s.next.date)}.</span></div>`:s.next?`<div class="notice ${s.status==='due'?'':'good'}"><span>Next payment <b>${fmtMoney(s.next.due-s.next.applied,l.currency)}</b> due ${fmtDate(s.next.date)} (${daysBetween(today(),s.next.date)} days).</span></div>`:'';
+  $('#view-detail').innerHTML=`<button class="back" id="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>Back</button>
+  ${stateLine}
+  <div class="hero"><div class="row between"><div><span class="eyebrow">Still owed</span><div class="big"><span class="cur">${l.currency}</span>${fmtMoney(s.outstanding)}</div></div><span class="pill ${s.status}">${({paid:'Paid',overdue:'Overdue',due:'Due soon',ok:'On track'})[s.status]}</span></div>
+    <div class="bar"><i style="width:${pct.toFixed(1)}%"></i></div>
+    <div class="stats"><div><span class="eyebrow">Recovered</span><span class="v">${fmtMoney(s.paidTotal)}</span></div><div><span class="eyebrow">Payments</span><span class="v">${s.rows.filter(r=>r.state==='paid').length} / ${l.instalments}</span></div><div><span class="eyebrow">Paid off</span><span class="v">${fmtShort(s.payoffDate)} ${parse(s.payoffDate).getFullYear()}</span></div></div></div>
+  <div class="row wrap actions"><button class="btn grow" id="icsBtn"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Add reminders to calendar</button><button class="btn grow" id="shareBtn"><svg viewBox="0 0 24 24"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M12 3v13M7 8l5-5 5 5"/></svg>Share statement</button></div>
+  <div class="card"><h3>Terms</h3><dl class="kv"><dt>Borrower</dt><dd><button class="back" data-person="${p.id}">${esc(p.name)}</button></dd><dt>Date loaned</dt><dd>${fmtDate(l.loanDate)}</dd><dt>Schedule</dt><dd>${freqLabel(l.freqCount,l.freqUnit)} · ${l.instalments} payments of ~${fmtMoney(l.amount/l.instalments,l.currency)}</dd><dt>First payment</dt><dd>${fmtDate(l.firstDue)}</dd>${l.purpose?`<dt>Purpose</dt><dd>${esc(l.purpose)}</dd>`:''}${l.notes?`<dt>Notes</dt><dd>${esc(l.notes)}</dd>`:''}</dl></div>
+  <div class="card"><h3>Payment schedule</h3><div class="scroll"><table class="sched"><thead><tr><th>#</th><th>Due date</th><th class="r">Amount</th><th class="r">Received</th><th>Status</th></tr></thead><tbody>${s.rows.map(r=>`<tr class="${r.state}"><td class="num">${r.k+1}</td><td>${fmtDate(r.date)}</td><td class="r num">${fmtMoney(r.due)}</td><td class="r num">${r.applied?fmtMoney(r.applied):'—'}</td><td><span class="pill ${r.state==='upcoming'?'':r.state==='due'?'due':r.state}">${({paid:'Paid',overdue:'Overdue',due:'Due soon',upcoming:'Upcoming'})[r.state]}${r.state!=='paid'&&r.applied?' (part)':''}</span></td></tr>`).join('')}</tbody></table></div></div>
+  <div class="card"><div class="row between"><h3>Payments received</h3><span class="small muted">${s.pays.length}</span></div>${s.pays.length?`<div class="scroll"><table class="sched"><thead><tr><th>Date</th><th class="r">Amount</th><th>Method</th><th></th></tr></thead><tbody>${s.pays.map(x=>`<tr><td>${fmtDate(x.date)}${x.note?`<div class="small muted">${esc(x.note)}</div>`:''}</td><td class="r num">${fmtMoney(x.amount)}</td><td>${esc(x.method||'')}${x.ref?`<div class="small muted num">${esc(x.ref)}</div>`:''}</td><td class="r"><button class="btn ghost sm" data-editpay="${x.id}">Edit</button></td></tr>`).join('')}</tbody></table></div>`:'<span class="muted small">No payments received yet.</span>'}</div>
+  <div class="row wrap">${l.status==='closed'?`<button class="btn grow" id="reopen">Reopen loan</button>`:`<button class="btn grow" id="closeLoan">Close / write off</button>`}<button class="btn danger grow" id="delLoan">Delete loan</button></div>`;
+  $('#back').addEventListener('click',()=>{detail=null;render();});
+  $('#icsBtn').addEventListener('click',()=>exportICS(l,s));
+  $('#shareBtn').addEventListener('click',()=>shareStatement(l,s,p));
+  $$('[data-editpay]').forEach(b=>b.addEventListener('click',()=>openPay(l,db.payments.find(x=>x.id===b.dataset.editpay))));
+  $('#closeLoan')?.addEventListener('click',()=>{if(!confirm('Mark this loan as closed? It will stop appearing in reminders.'))return;l.status='closed';save();render();});
+  $('#reopen')?.addEventListener('click',()=>{l.status='active';save();render();});
+  $('#delLoan').addEventListener('click',()=>{if(!confirm('Delete this loan and all its payments?'))return;db.loans=db.loans.filter(x=>x.id!==id);db.payments=db.payments.filter(x=>x.loanId!==id);save();detail=null;render();toast('Loan deleted');});
+  bindItems($('#view-detail'));
+}
+
+/* ---------- reminders ---------- */
+function renderRemind(){
+  const v=$('#view-remind');
+  const items=db.loans.filter(l=>l.status!=='closed').map(l=>({l,s:schedule(l)})).filter(x=>x.s.status!=='paid');
+  const groups={overdue:[],due:[],ok:[]};items.forEach(x=>groups[x.s.status].push(x));
+  Object.values(groups).forEach(g=>g.sort((a,b)=>a.s.next.date<b.s.next.date?-1:1));
+  const block=(title,arr,cls)=>arr.length?`<div class="section"><div class="section-head"><h2>${title}</h2><span class="small muted">${arr.length}</span></div><div class="list">${arr.map(x=>{const p=personOf(x.l.personId);const r=x.s.next;return `<div class="item"><span class="stripe ${cls}"></span><span class="grow"><span class="t"><span class="name">${esc(p.name)}</span></span><span class="s">${fmtMoney(r.due-r.applied,x.l.currency)} · due ${fmtDate(r.date)} · ${cls==='overdue'?Math.abs(daysBetween(today(),r.date))+' days late':daysBetween(today(),r.date)+' days'}</span><span class="row" style="margin-top:8px"><button class="btn sm primary" data-pay="${x.l.id}">Record payment</button><button class="btn sm" data-loan="${x.l.id}">Open</button>${p.phone?`<a class="btn sm" href="tel:${esc(p.phone)}">Call</a>`:''}</span></span></div>`;}).join('')}</div></div>`:'';
+  v.innerHTML=`${notifyBanner()}${block('Overdue',groups.overdue,'overdue')}${block('Due soon',groups.due,'due')}${block('Upcoming',groups.ok,'ok')}${items.length?'':'<div class="empty"><h3>Nothing to chase</h3><span>Every active loan is on schedule.</span></div>'}
+  <div class="card help"><h3>How reminders work</h3><p>The app checks every loan whenever you open it and lists anything overdue or due within ${db.settings.daysBefore} days here. Because a web app can't wake your phone on its own, tap <b>Add reminders to calendar</b> on any loan: it creates a repeating event in your phone's Calendar (iPhone or Android) that alerts you one day before each payment until the loan is paid off.</p></div>`;
+  $$('[data-pay]',v).forEach(b=>b.addEventListener('click',()=>openPay(db.loans.find(l=>l.id===b.dataset.pay))));
+  $('#enableNotify')?.addEventListener('click',enableNotify);
+  bindItems(v);
+}
+function notifyBanner(){
+  if(!('Notification'in window)||db.settings.notify)return '';
+  return `<div class="notice"><span>Get an alert when you open the app and a payment is due.</span><button class="btn sm" id="enableNotify">Turn on</button></div>`;
+}
+async function enableNotify(){try{const r=await Notification.requestPermission();if(r==='granted'){db.settings.notify=true;save();toast('Alerts on');render();checkNotify();}else toast('Notifications were not allowed.');}catch(e){toast('Notifications not supported here.');}}
+function checkNotify(){
+  if(!db.settings.notify||!('Notification'in window)||Notification.permission!=='granted')return;
+  const due=db.loans.filter(l=>l.status!=='closed').map(l=>({l,s:schedule(l)})).filter(x=>x.s.status==='overdue'||x.s.status==='due');
+  if(!due.length)return;const stamp=today();if(sessionStorage.getItem('notified')===stamp)return;sessionStorage.setItem('notified',stamp);
+  try{new Notification('Lent Ledger',{body:due.map(x=>`${personOf(x.l.personId).name}: ${fmtMoney(x.s.next.due-x.s.next.applied,x.l.currency)} ${x.s.status==='overdue'?'overdue':'due '+fmtShort(x.s.next.date)}`).join('\n'),tag:'lentledger'});}catch(e){}
+}
+
+/* ---------- calendar (.ics) ---------- */
+function icsDate(iso){return iso.replace(/-/g,'');}
+function exportICS(l,s){
+  const p=personOf(l.personId);const remaining=s.rows.filter(r=>r.state!=='paid');if(!remaining.length){toast('This loan is already paid off.');return;}
+  const first=remaining[0].date;const count=remaining.length;
+  let rrule;const {freqCount:c,freqUnit:u}=l;
+  if(u==='year'&&Number.isInteger(12/c))rrule=`FREQ=MONTHLY;INTERVAL=${12/c};COUNT=${count}`;
+  else if(u==='month'&&c===1)rrule=`FREQ=MONTHLY;COUNT=${count}`;
+  else if(u==='month'&&c===4)rrule=`FREQ=WEEKLY;COUNT=${count}`;
+  else if(u==='month'&&c===2){const d=parse(first).getDate();const d2=d<=13?d+15:d-15;rrule=`FREQ=MONTHLY;BYMONTHDAY=${Math.min(d,28)},${Math.min(d2,28)};COUNT=${count}`;}
+  else rrule=`FREQ=DAILY;INTERVAL=${Math.max(1,Math.round(u==='year'?365/c:30/c))};COUNT=${count}`;
+  const per=fmtMoney(remaining[0].due,l.currency);
+  const stampNow=new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+  const ics=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Lent Ledger//EN','CALSCALE:GREGORIAN','BEGIN:VEVENT',`UID:${l.id}@lentledger`,`DTSTAMP:${stampNow}`,`DTSTART;VALUE=DATE:${icsDate(first)}`,`DTEND;VALUE=DATE:${icsDate(addDays(first,1))}`,`RRULE:${rrule}`,`SUMMARY:Loan payment due — ${p.name} (${per})`,`DESCRIPTION:${p.name} owes ${per} on this date. Outstanding ${fmtMoney(s.outstanding,l.currency)} of ${fmtMoney(l.amount,l.currency)}${l.purpose?' — '+l.purpose:''}. Payments left after this: ${count-1}.`.replace(/\n/g,'\\n'),'BEGIN:VALARM','TRIGGER:-P1D','ACTION:DISPLAY',`DESCRIPTION:Tomorrow: ${p.name} loan payment ${per}`,'END:VALARM','BEGIN:VALARM','TRIGGER:PT9H','ACTION:DISPLAY',`DESCRIPTION:Today: ${p.name} loan payment ${per}`,'END:VALARM','END:VEVENT','END:VCALENDAR'].join('\r\n');
+  downloadFile(`loan-${p.name.replace(/\W+/g,'-').toLowerCase()}.ics`,ics,'text/calendar');
+}
+let dl=null,dlReady=false;
+if(window.claude&&typeof window.claude.use==='function'){window.claude.use('downloads').then(ns=>{dl=ns;dlReady=true;}).catch(()=>{dlReady=true;});}else dlReady=true;
+const HOSTED_VIEWER=!!(window.claude&&typeof window.claude.use==='function');
+async function downloadFile(name,content,type){
+  const ext=name.split('.').pop().toLowerCase();
+  if(dl&&['json','csv','txt','html','md'].includes(ext)){try{await dl.save({filename:name,data:content});toast('Saved '+name);}catch(e){if(e&&e.code!=='declined')toast('Could not save the file here.');}return;}
+  if(HOSTED_VIEWER){toast('File downloads only work in the installed app — use the zip package to install it on your phone.');return;}
+  const blob=new Blob([content],{type});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(url);},2000);toast(ext==='ics'?'Calendar file ready — open it to add the reminders.':'Saved '+name);
+}
+async function shareStatement(l,s,p){
+  const lines=[`Loan statement — ${p.name}`,`Loaned ${fmtMoney(l.amount,l.currency)} on ${fmtDate(l.loanDate)}${l.purpose?' ('+l.purpose+')':''}`,`Received so far: ${fmtMoney(s.paidTotal,l.currency)}`,`Outstanding: ${fmtMoney(s.outstanding,l.currency)}`,s.next?`Next payment: ${fmtMoney(s.next.due-s.next.applied,l.currency)} due ${fmtDate(s.next.date)}`:'Fully paid',`Plan: ${freqLabel(l.freqCount,l.freqUnit)}, paid off by ${fmtDate(s.payoffDate)}`,'',...s.pays.map(x=>`${fmtDate(x.date)}  ${fmtMoney(x.amount,l.currency)}  ${x.method||''}`)];
+  const text=lines.join('\n');
+  if(navigator.share){try{await navigator.share({title:'Loan statement',text});return;}catch(e){}}
+  try{await navigator.clipboard.writeText(text);toast('Statement copied to clipboard');}catch(e){prompt('Copy this statement:',text);}
+}
+
+/* ---------- more / settings ---------- */
+function renderMore(){
+  const v=$('#view-more');
+  v.innerHTML=`<div class="card"><h3>Preferences</h3>
+    <div class="field"><label>Default currency</label><select id="setCur">${CURRENCIES.map(c=>`<option ${c===db.settings.currency?'selected':''}>${c}</option>`).join('')}</select></div>
+    <div class="field"><label>Show "due soon" this many days ahead</label><input id="setDays" type="number" min="0" max="60" value="${db.settings.daysBefore}"></div>
+    <div class="field"><label>Appearance</label><div class="seg" id="themeSeg"><button type="button" data-theme="">System</button><button type="button" data-theme="light">Light</button><button type="button" data-theme="dark">Dark</button></div></div>
+  </div>
+  <div class="card"><h3>Backup</h3><p class="help">Everything is stored only on this device. Export a backup regularly — especially before clearing browser data or switching phones — and import it on the new device.</p>
+    <div class="row wrap"><button class="btn grow" id="expJson">Export backup (.json)</button><button class="btn grow" id="impJson">Import backup</button></div>
+    <button class="btn block" id="expCsv">Export all loans &amp; payments (.csv)</button>
+    <input type="file" id="fileImp" accept="application/json,.json" hidden></div>
+  <div class="card help"><h3>Install on your phone</h3>
+    <p><b>iPhone / iPad:</b> open this page in Safari, tap the Share button, then <b>Add to Home Screen</b>.</p>
+    <p><b>Android:</b> open in Chrome, tap the ⋮ menu, then <b>Add to Home screen</b> / <b>Install app</b>.</p>
+    <p>Once installed it opens full-screen like a normal app and works without internet.</p></div>
+  <div class="card"><h3>Danger zone</h3><div class="row wrap">${db.settings.sample?'<button class="btn grow" id="clearSample2">Clear example data</button>':''}<button class="btn danger grow" id="wipe">Erase everything</button></div></div>
+  <p class="small muted" style="text-align:center">Lent Ledger · ${db.people.length} people · ${db.loans.length} loans · ${db.payments.length} payments</p>`;
+  $('#setCur').addEventListener('change',e=>{db.settings.currency=e.target.value;save();toast('Default currency: '+e.target.value);});
+  $('#setDays').addEventListener('change',e=>{db.settings.daysBefore=Math.max(0,Math.min(60,+e.target.value||0));save();});
+  const cur=localStorage.getItem('lentledger.theme')||'';$$('#themeSeg button').forEach(b=>{b.classList.toggle('on',b.dataset.theme===cur);b.addEventListener('click',()=>applyTheme(b.dataset.theme,true));});
+  $('#expJson').addEventListener('click',()=>downloadFile(`lent-ledger-backup-${today()}.json`,JSON.stringify(db,null,2),'application/json'));
+  $('#impJson').addEventListener('click',()=>$('#fileImp').click());
+  $('#fileImp').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.people)||!Array.isArray(d.loans))throw 0;if(!confirm(`Replace current data with this backup (${d.people.length} people, ${d.loans.length} loans)?`))return;db=Object.assign({people:[],loans:[],payments:[],settings:{}},d);db.settings=Object.assign({currency:'AED',daysBefore:3,notify:false,sample:false},db.settings);save();render();toast('Backup restored');}catch(err){toast('That file is not a Lent Ledger backup.');}e.target.value='';});
+  $('#expCsv').addEventListener('click',exportCSV);
+  $('#clearSample2')?.addEventListener('click',clearSample);
+  $('#wipe').addEventListener('click',()=>{if(!confirm('Erase all people, loans and payments from this device?'))return;if(!confirm('Really erase everything? Export a backup first if unsure.'))return;db={people:[],loans:[],payments:[],settings:Object.assign({},db.settings,{sample:false})};save();render();toast('All data erased');});
+}
+function clearSample(){db.people=db.people.filter(p=>!p.id.startsWith('p_sample'));db.loans=db.loans.filter(l=>!l.id.startsWith('l_sample'));db.payments=db.payments.filter(x=>!x.id.startsWith('pay_s'));db.settings.sample=false;save();render();toast('Example data cleared');}
+function exportCSV(){
+  const q=s=>`"${String(s??'').replace(/"/g,'""')}"`;
+  const rows=[['Type','Person','Phone','Bank','Account no.','IBAN','Loan date','Currency','Amount','Purpose','Frequency','First due','Instalments','Pay-off by','Paid','Outstanding','Status','Payment date','Payment amount','Method','Reference','Note']];
+  db.loans.forEach(l=>{const p=personOf(l.personId),s=schedule(l);const base=['Loan',p.name,p.phone,p.bankName,p.accountNumber,p.iban,l.loanDate,l.currency,l.amount,l.purpose,freqLabel(l.freqCount,l.freqUnit),l.firstDue,l.instalments,s.payoffDate,s.paidTotal,s.outstanding,l.status==='closed'?'closed':s.status];rows.push(base);s.pays.forEach(x=>rows.push(['Payment',p.name,'','','','','',l.currency,'','','','','','','','','',x.date,x.amount,x.method,x.ref,x.note]));});
+  downloadFile(`lent-ledger-${today()}.csv`,rows.map(r=>r.map(q).join(',')).join('\r\n'),'text/csv');
+}
+function applyTheme(t,persist){const root=document.documentElement;if(t)root.setAttribute('data-theme',t);else root.removeAttribute('data-theme');if(persist){try{t?localStorage.setItem('lentledger.theme',t):localStorage.removeItem('lentledger.theme');}catch(e){}if(tab==='more'&&!detail)render();}}
+try{applyTheme(localStorage.getItem('lentledger.theme')||'');}catch(e){}
+
+/* ---------- dialogs ---------- */
+$$('dialog.sheet').forEach(d=>{$('[data-close]',d).addEventListener('click',()=>d.close());d.addEventListener('click',e=>{if(e.target===d)d.close();});});
+function fill(form,obj){$$('[name]',form).forEach(el=>{el.value=obj[el.name]??'';});}
+function read(form){const o={};$$('[name]',form).forEach(el=>{o[el.name]=el.value.trim();});return o;}
+
+function openPerson(p){
+  const f=$('#formPerson');f.reset();fill(f,p||{method:'Bank transfer'});$('#personTitle').textContent=p?'Edit person':'New person';
+  $('#dlgPerson').showModal();$('[name=name]',f).focus();
+}
+$('#formPerson').addEventListener('submit',e=>{e.preventDefault();const o=read(e.target);if(!o.name)return;const isNew=!o.id;
+  if(o.id){const p=db.people.find(x=>x.id===o.id);Object.assign(p,o);}else{o.id=uid();o.createdAt=Date.now();db.people.push(o);}
+  save();$('#dlgPerson').close();toast(isNew?'Person added':'Saved');
+  if(!e.target.dataset.fromLoan){if(tab==='home'&&!detail){detail={type:'person',id:o.id};}render();}
+  else{delete e.target.dataset.fromLoan;populateLoanPeople(o.id);}
+});
+
+const FREQ={month:[[1,'once'],[2,'twice'],[4,'4 times']],year:[[12,'12 times'],[6,'6 times'],[4,'4 times'],[3,'3 times'],[2,'twice'],[1,'once']]};
+function fillFreq(unit,val){$('#freqCount').innerHTML=FREQ[unit].map(([n,l])=>`<option value="${n}" ${n==val?'selected':''}>${l}</option>`).join('');}
+function populateLoanPeople(sel){const s=$('#loanPerson');s.innerHTML='<option value="">Choose a person…</option>'+[...db.people].sort((a,b)=>a.name.localeCompare(b.name)).map(p=>`<option value="${p.id}" ${p.id===sel?'selected':''}>${esc(p.name)}</option>`).join('')+'<option value="__new">+ Add a new person</option>';}
+$('#loanPerson').addEventListener('change',e=>{if(e.target.value==='__new'){e.target.value='';$('#formPerson').dataset.fromLoan='1';openPerson();}});
+let planMode='payoff';
+$$('#planMode button').forEach(b=>b.addEventListener('click',()=>{planMode=b.dataset.mode;$$('#planMode button').forEach(x=>x.classList.toggle('on',x===b));$('#fPayoff').hidden=planMode!=='payoff';$('#fInst').hidden=planMode!=='instalment';preview();}));
+$('#freqUnit').addEventListener('change',e=>{fillFreq(e.target.value,e.target.value==='month'?1:12);preview();});
+$('#formLoan').addEventListener('input',preview);
+function planFromForm(){
+  const o=read($('#formLoan'));const amount=+o.amount||0,c=+o.freqCount||1,u=o.freqUnit||'month',first=o.firstDue;
+  if(!amount||!first)return null;
+  let n;
+  if(planMode==='payoff'){if(!o.payoffDate||o.payoffDate<first)return {err:'Pick a pay-off date on or after the first payment.'};n=countUntil(first,o.payoffDate,c,u);}
+  else{const inst=+o.instalment||0;if(!inst)return {err:'Enter the amount per payment.'};n=Math.max(1,Math.ceil(amount/inst-1e-9));}
+  return {n,per:amount/n,last:stepDate(first,n-1,c,u),c,u};
+}
+function preview(){
+  const el=$('#planPreview');const pl=planFromForm();
+  if(!pl){el.innerHTML='<span style="grid-column:1/-1">Enter the amount and first payment date to see the plan.</span>';return;}
+  if(pl.err){el.innerHTML=`<span style="grid-column:1/-1">${pl.err}</span>`;return;}
+  el.innerHTML=`<div><span>Payments</span><b>${pl.n}</b></div><div><span>Each payment</span><b>${fmtMoney(pl.per)}</b></div><div><span>Schedule</span><b style="font-family:var(--sans)">${freqLabel(pl.c,pl.u)}</b></div><div><span>Paid off on</span><b style="font-family:var(--sans)">${fmtDate(pl.last)}</b></div>`;
+}
+function openLoan(l,personId){
+  const f=$('#formLoan');f.reset();
+  $('#loanCurrency').innerHTML=CURRENCIES.map(c=>`<option>${c}</option>`).join('');
+  populateLoanPeople(l?l.personId:personId);
+  const unit=l?l.freqUnit:'month';$('#freqUnit').value=unit;fillFreq(unit,l?l.freqCount:1);
+  fill(f,l?{id:l.id,amount:l.amount,currency:l.currency,loanDate:l.loanDate,purpose:l.purpose,firstDue:l.firstDue,notes:l.notes,payoffDate:stepDate(l.firstDue,l.instalments-1,l.freqCount,l.freqUnit),instalment:round2(l.amount/l.instalments)}:{currency:db.settings.currency,loanDate:today(),firstDue:addMonths(today(),1),payoffDate:addMonths(today(),12)});
+  $('#loanPerson').value=l?l.personId:(personId||'');$('#freqUnit').value=unit;$('#freqCount').value=l?l.freqCount:1;
+  planMode='payoff';$$('#planMode button').forEach(x=>x.classList.toggle('on',x.dataset.mode==='payoff'));$('#fPayoff').hidden=false;$('#fInst').hidden=true;
+  $('#loanTitle').textContent=l?'Edit loan':'New loan';preview();$('#dlgLoan').showModal();
+}
+$('#formLoan').addEventListener('submit',e=>{e.preventDefault();const o=read(e.target);const pl=planFromForm();
+  if(!o.personId){toast('Choose who you lent to.');return;}if(!pl||pl.err){toast(pl?.err||'Complete the repayment plan.');return;}
+  const rec={personId:o.personId,amount:round2(+o.amount),currency:o.currency,loanDate:o.loanDate,purpose:o.purpose,freqCount:pl.c,freqUnit:pl.u,firstDue:o.firstDue,instalments:pl.n,notes:o.notes};
+  let id=o.id;if(id){Object.assign(db.loans.find(x=>x.id===id),rec);}else{id=uid();db.loans.push(Object.assign({id,status:'active',createdAt:Date.now()},rec));}
+  save();$('#dlgLoan').close();toast(o.id?'Loan updated':'Loan added');detail={type:'loan',id};render();window.scrollTo(0,0);
+});
+
+function openPay(l,pay){
+  const f=$('#formPay');f.reset();const s=schedule(l),p=personOf(l.personId);
+  const suggested=pay?pay.amount:s.next?round2(s.next.due-s.next.applied):s.outstanding;
+  fill(f,pay?Object.assign({},pay):{loanId:l.id,amount:suggested,date:today(),method:p.method||'Bank transfer'});
+  $('#payTitle').textContent=pay?'Edit payment':'Record payment';
+  $('#payContext').innerHTML=`<span><b>${esc(p.name)}</b> · ${fmtMoney(s.outstanding,l.currency)} outstanding${s.next?` · next due ${fmtDate(s.next.date)}`:''}</span>`;
+  $('#dlgPay').showModal();
+}
+$('#formPay').addEventListener('submit',e=>{e.preventDefault();const o=read(e.target);const amt=round2(+o.amount);if(!amt)return;
+  if(o.id){Object.assign(db.payments.find(x=>x.id===o.id),{amount:amt,date:o.date,method:o.method,ref:o.ref,note:o.note});}
+  else db.payments.push({id:uid(),loanId:o.loanId,amount:amt,date:o.date,method:o.method,ref:o.ref,note:o.note});
+  const l=db.loans.find(x=>x.id===o.loanId);const s=schedule(l);
+  save();$('#dlgPay').close();toast(s.status==='paid'?'Paid off — nicely done':'Payment recorded');
+  detail={type:'loan',id:o.loanId};render();
+});
+$('#formPay').insertAdjacentHTML('beforeend','');
+// delete payment via edit form: add a delete button when editing
+$('#dlgPay').addEventListener('close',()=>{});
+(function addDeletePay(){const foot=$('#formPay .sheet-foot');const b=document.createElement('button');b.type='button';b.className='btn danger';b.textContent='Delete';b.style.flex='0 0 auto';b.id='delPay';foot.prepend(b);
+  b.addEventListener('click',()=>{const id=$('#formPay [name=id]').value;if(!id)return;if(!confirm('Delete this payment?'))return;const loanId=$('#formPay [name=loanId]').value;db.payments=db.payments.filter(x=>x.id!==id);save();$('#dlgPay').close();detail={type:'loan',id:loanId};render();toast('Payment deleted');});
+  $('#dlgPay').addEventListener('toggle',()=>{});
+  const obs=new MutationObserver(()=>{b.hidden=!$('#formPay [name=id]').value;});obs.observe($('#dlgPay'),{attributes:true,attributeFilter:['open']});
+})();
+
+/* ---------- toast & boot ---------- */
+let toastT;function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2600);}
+render();checkNotify();
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){render();checkNotify();}});
+})();
+</script>
+<script>if("serviceWorker" in navigator && location.protocol.startsWith("http")){navigator.serviceWorker.register("sw.js").catch(()=>{});}</script>
+</body>
+</html>
