@@ -61,9 +61,10 @@ h3{font-size:17px;line-height:1.25}
 
 #app{max-width:600px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;padding-bottom:calc(74px + env(safe-area-inset-bottom))}
 header.top{position:sticky;top:0;z-index:5;background:var(--paper);padding:calc(14px + env(safe-area-inset-top)) 18px 10px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line)}
-header.top .brand{display:flex;flex-direction:column;gap:2px}
+header.top .brand{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+header.top #hdrActions{flex-shrink:0}
 header.top .brand h1{font-size:22px}
-main{padding:16px 18px 24px;display:flex;flex-direction:column;gap:18px}
+main{padding:16px 18px 24px;display:flex;flex-direction:column;gap:18px;flex:1}
 .view{display:none;flex-direction:column;gap:18px}
 .view.active{display:flex}
 
@@ -202,7 +203,7 @@ legend{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:upperc
 #lockMsg{min-height:20px;color:var(--muted);font-size:13.5px}
 #lockMsg.bad{color:var(--bad)}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
-@media (min-width:640px){body{padding:24px 0}#app{border:1px solid var(--line);border-radius:26px;overflow:hidden;background:var(--paper);min-height:calc(100vh - 48px)}nav.tabs{position:sticky;bottom:0}}
+@media (min-width:640px){body{padding:24px 0}#app{padding-bottom:0;border:1px solid var(--line);border-radius:26px;overflow:hidden;background:var(--paper);min-height:calc(100vh - 48px)}nav.tabs{position:sticky;bottom:0}}
 </style>
 
 </head>
@@ -282,7 +283,7 @@ legend{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:upperc
       <input type="hidden" name="id">
       <div class="field"><label>Person *</label><select name="personId" required id="loanPerson"></select></div>
       <div class="grid2">
-        <div class="field"><label>Amount loaned *</label><input name="amount" class="mono" type="number" inputmode="decimal" min="0.01" step="0.01" required placeholder="0.00"></div>
+        <div class="field"><label id="amtLabel">Amount loaned *</label><input name="amount" class="mono" type="number" inputmode="decimal" min="0.01" step="0.01" required placeholder="0.00"><span class="hint" id="amtHint" hidden>This is the first amount only. Later top-ups are edited in the borrowing timeline on the loan page.</span></div>
         <div class="field"><label>Currency</label><select name="currency" id="loanCurrency"></select></div>
       </div>
       <div class="field"><label>Date loaned</label><input name="loanDate" type="date" required><span class="hint">Defaults to today. Pick an earlier date for loans made in the past.</span></div>
@@ -315,6 +316,24 @@ legend{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:upperc
   </form>
 </dialog>
 
+<!-- Top-up (borrowed more) form -->
+<dialog class="sheet" id="dlgAdv">
+  <form class="panel" method="dialog" id="formAdv">
+    <div class="sheet-head"><h2 id="advTitle">Borrowed more</h2><button type="button" class="btn ghost sm" data-close>Cancel</button></div>
+    <div class="sheet-body">
+      <input type="hidden" name="id"><input type="hidden" name="loanId">
+      <div class="notice good" id="advContext"></div>
+      <div class="grid2">
+        <div class="field"><label>Extra amount *</label><input name="amount" class="mono" type="number" inputmode="decimal" min="0.01" step="0.01" required placeholder="0.00"></div>
+        <div class="field"><label>Date borrowed</label><input name="date" type="date" required></div>
+      </div>
+      <div class="field"><label>Note</label><input name="note" placeholder="What it was for, optional"></div>
+      <div class="field" id="advModeWrap"><label>What happens to the plan</label><span class="hint" id="advHint"></span></div>
+    </div>
+    <div class="sheet-foot"><button type="submit" class="btn primary">Add to loan</button></div>
+  </form>
+</dialog>
+
 <!-- Payment form -->
 <dialog class="sheet" id="dlgPay">
   <form class="panel" method="dialog" id="formPay">
@@ -336,6 +355,7 @@ legend{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:upperc
   </form>
 </dialog>
 
+<dialog class="sheet" id="dlgAsk"><div class="panel"><div class="sheet-head"><h2>Are you sure?</h2></div><div class="sheet-body"><p id="askMsg" style="margin:0;white-space:pre-line"></p></div><div class="sheet-foot"><button type="button" class="btn" id="askNo">Cancel</button><button type="button" class="btn danger" id="askYes">Yes, continue</button></div></div></dialog>
 <div id="lock" hidden role="dialog" aria-modal="true" aria-label="Unlock">
   <div class="mark"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
   <div><h2 id="lockTitle">Enter your PIN</h2><div id="lockMsg"></div></div>
@@ -373,7 +393,7 @@ const round2=n=>Math.round(n*100)/100;
 /* ---------- storage ---------- */
 let db=load();
 function load(){
-  try{const raw=localStorage.getItem(KEY);if(raw){const d=JSON.parse(raw);(d.people||[]).forEach(p=>{if(!['Family','Friend','Other'].includes(p.relationship)){const r=(p.relationship||'').toLowerCase();p.relationship=/friend|colleague|mate|buddy/.test(r)?'Friend':/cousin|brother|sister|uncle|aunt|father|mother|son|daughter|wife|husband|family|nephew|niece|in-law|dad|mum|mom/.test(r)?'Family':r?'Other':'Friend';}});return Object.assign({people:[],loans:[],payments:[],settings:{}},d,{settings:Object.assign({currency:'AED',daysBefore:3,notify:false,sample:false},d.settings||{})});}}catch(e){}
+  try{const raw=localStorage.getItem(KEY);if(raw){const d=JSON.parse(raw);(d.loans||[]).forEach(l=>{if(!Array.isArray(l.advances)||!l.advances.length)l.advances=[{id:'adv_'+l.id,date:l.loanDate,amount:+l.amount||0,note:'Original loan'}];l.amount=round2(l.advances.reduce((t,a)=>t+(+a.amount||0),0));});(d.people||[]).forEach(p=>{if(!['Family','Friend','Other'].includes(p.relationship)){const r=(p.relationship||'').toLowerCase();p.relationship=/friend|colleague|mate|buddy/.test(r)?'Friend':/cousin|brother|sister|uncle|aunt|father|mother|son|daughter|wife|husband|family|nephew|niece|in-law|dad|mum|mom/.test(r)?'Family':r?'Other':'Friend';}});return Object.assign({people:[],loans:[],payments:[],settings:{}},d,{settings:Object.assign({currency:'AED',daysBefore:3,notify:false,sample:false},d.settings||{})});}}catch(e){}
   const d={people:[],loans:[],payments:[],settings:{currency:'AED',daysBefore:3,notify:false,sample:true}};
   seed(d);return d;
 }
@@ -382,8 +402,8 @@ function seed(d){
   const p1={id:'p_sample1',name:'Rahul Menon',phone:'+971 50 123 4567',relationship:'Friend',bankName:'Emirates NBD',accountName:'Rahul Menon',accountNumber:'1012345678901',iban:'AE07 0260 0010 1234 5678 901',method:'Bank transfer',notes:'Example entry — delete from More › Clear example data',createdAt:Date.now()};
   const p2={id:'p_sample2',name:'Priya Nair',phone:'+91 98765 43210',relationship:'Family',bankName:'HDFC Bank',accountName:'Priya S Nair',accountNumber:'50100123456789',method:'Bank transfer',notes:'Example entry',createdAt:Date.now()};
   const t=today();
-  const l1={id:'l_sample1',personId:'p_sample1',amount:12000,currency:'AED',loanDate:addMonths(t,-4),purpose:'Car repair',freqCount:1,freqUnit:'month',firstDue:addMonths(addDays(t,-10),-3),instalments:12,notes:'Agreed verbally, WhatsApp record kept',status:'active',createdAt:Date.now()};
-  const l2={id:'l_sample2',personId:'p_sample2',amount:50000,currency:'INR',loanDate:addMonths(t,-1),purpose:'Laptop for studies',freqCount:2,freqUnit:'month',firstDue:addDays(t,5),instalments:10,notes:'',status:'active',createdAt:Date.now()};
+  const l1={id:'l_sample1',personId:'p_sample1',amount:12000,currency:'AED',loanDate:addMonths(t,-4),purpose:'Car repair',freqCount:1,freqUnit:'month',firstDue:addMonths(addDays(t,-10),-3),instalments:12,notes:'Agreed verbally, WhatsApp record kept',status:'active',createdAt:Date.now(),advances:[{id:'adv_s1a',date:addMonths(t,-4),amount:10000,note:'Original loan'},{id:'adv_s1b',date:addMonths(t,-2),amount:2000,note:'Extra for spare parts'}]};
+  const l2={id:'l_sample2',personId:'p_sample2',amount:50000,currency:'INR',loanDate:addMonths(t,-1),purpose:'Laptop for studies',freqCount:2,freqUnit:'month',firstDue:addDays(t,5),instalments:10,notes:'',status:'active',createdAt:Date.now(),advances:[{id:'adv_s2a',date:addMonths(t,-1),amount:50000,note:'Original loan'}]};
   d.people.push(p1,p2);d.loans.push(l1,l2);
   d.payments.push({id:'pay_s1',loanId:'l_sample1',date:l1.firstDue,amount:1000,method:'Bank transfer',ref:'',note:''},{id:'pay_s2',loanId:'l_sample1',date:addMonths(l1.firstDue,1),amount:1000,method:'Cash',ref:'',note:''});
 }
@@ -406,18 +426,28 @@ function interestOf(amount,rate,per,loanDate,lastDue){
   const monthly=per==='month'?rate/100:rate/100/12;
   return round2(amount*monthly*months);
 }
-function loanTotal(l){const last=stepDate(l.firstDue,Math.max(1,l.instalments|0)-1,l.freqCount,l.freqUnit);const interest=interestOf(l.amount,+l.interestRate||0,l.interestPer||'year',l.loanDate,last);return {interest,total:round2(l.amount+interest),last};}
+const advancesOf=l=>(l.advances&&l.advances.length?l.advances:[{id:'adv_'+l.id,date:l.loanDate,amount:+l.amount||0,note:'Original loan'}]).slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+const principalOf=l=>round2(advancesOf(l).reduce((t,a)=>t+(+a.amount||0),0));
+function loanTotal(l){
+  const n=Math.max(1,l.instalments|0);const dates=[];for(let k=0;k<n;k++)dates.push(stepDate(l.firstDue,k,l.freqCount,l.freqUnit));const last=dates[n-1];
+  const rate=+l.interestRate||0,per=l.interestPer||'year';
+  const dues=new Array(n).fill(0);let interest=0,principal=0;
+  advancesOf(l).forEach(a=>{const amt=+a.amount||0;principal+=amt;const i=interestOf(amt,rate,per,a.date,last);interest+=i;const gross=round2(amt+i);
+    let elig=[];dates.forEach((d,k)=>{if(d>a.date)elig.push(k);});if(!elig.length)elig=[n-1];
+    const share=Math.floor(gross/elig.length*100)/100;elig.forEach(k=>dues[k]=round2(dues[k]+share));dues[elig[elig.length-1]]=round2(dues[elig[elig.length-1]]+round2(gross-share*elig.length));});
+  interest=round2(interest);principal=round2(principal);
+  return {interest,principal,total:round2(principal+interest),last,dates,dues};
+}
 function countUntil(first,payoff,count,unit){let k=0;while(stepDate(first,k,count,unit)<=payoff&&k<600)k++;return Math.max(1,k);}
 function schedule(loan){
   const pays=db.payments.filter(p=>p.loanId===loan.id).sort((a,b)=>a.date<b.date?-1:1);
   const paidTotal=round2(pays.reduce((s,p)=>s+Number(p.amount),0));
   const n=Math.max(1,loan.instalments|0);
-  const {interest,total}=loanTotal(loan);
-  const base=Math.floor(total/n*100)/100;
+  const {interest,total,principal,dates,dues}=loanTotal(loan);
   const rows=[];let remaining=paidTotal;const t=today();
   for(let k=0;k<n;k++){
-    const due=k===n-1?round2(total-base*(n-1)):base;
-    const date=stepDate(loan.firstDue,k,loan.freqCount,loan.freqUnit);
+    const due=dues[k];
+    const date=dates[k];
     const applied=Math.min(due,Math.max(0,remaining));remaining=round2(remaining-applied);
     let state=applied>=due-0.004?'paid':date<t?'overdue':daysBetween(t,date)<=db.settings.daysBefore?'due':'upcoming';
     if(state!=='paid'&&applied>0)state=state==='overdue'?'overdue':state;
@@ -428,7 +458,7 @@ function schedule(loan){
   const overdueAmt=round2(rows.filter(r=>r.state==='overdue').reduce((s,r)=>s+r.due-r.applied,0));
   const paidOff=outstanding<=0.004;
   const status=paidOff?'paid':overdueAmt>0?'overdue':next&&next.state==='due'?'due':'ok';
-  return {rows,pays,paidTotal,outstanding:Math.max(0,outstanding),next,overdueAmt,status,payoffDate:rows[n-1].date,interest,total};
+  return {rows,pays,paidTotal,outstanding:Math.max(0,outstanding),next,overdueAmt,status,payoffDate:rows[n-1].date,interest,total,principal};
 }
 const personOf=id=>db.people.find(p=>p.id===id)||{name:'(deleted person)'};
 const initials=n=>n.trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
@@ -453,7 +483,7 @@ const plusSvg='<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>';
 /* ---------- home ---------- */
 function totals(){
   const byCur={};
-  db.loans.filter(l=>l.status!=='closed').forEach(l=>{const s=schedule(l);const c=byCur[l.currency]||(byCur[l.currency]={lent:0,interest:0,paid:0,out:0,overdue:0});c.lent+=l.amount;c.interest+=s.interest;c.paid+=s.paidTotal;c.out+=s.outstanding;c.overdue+=s.overdueAmt;});
+  db.loans.filter(l=>l.status!=='closed').forEach(l=>{const s=schedule(l);const c=byCur[l.currency]||(byCur[l.currency]={lent:0,interest:0,paid:0,out:0,overdue:0});c.lent+=s.principal;c.interest+=s.interest;c.paid+=s.paidTotal;c.out+=s.outstanding;c.overdue+=s.overdueAmt;});
   return byCur;
 }
 function renderHome(){
@@ -500,17 +530,20 @@ function renderPeople(){
 function renderPerson(id){
   const p=db.people.find(x=>x.id===id);if(!p){detail=null;return render();}
   $('#hdrEyebrow').textContent=p.relationship||'Borrower';$('#hdrTitle').textContent=p.name;
-  headerBtn('Edit',()=>openPerson(p));headerBtn(plusSvg+' Loan',()=>openLoan(null,p.id),true);
+  headerBtn('Edit',()=>openPerson(p));
+  const activeLoans=db.loans.filter(l=>l.personId===id&&l.status!=='closed');
+  if(activeLoans.length===1)headerBtn(plusSvg+' Borrowed more',()=>openAdvance(activeLoans[0]),true);else headerBtn(plusSvg+' Loan',()=>openLoan(null,p.id),true);
   const loans=db.loans.filter(l=>l.personId===id).map(l=>({l,s:schedule(l)})).sort((a,b)=>a.l.loanDate<b.l.loanDate?1:-1);
   const kv=[['Default interest',p.relationship==='Other'&&+p.interestRate>0?`${esc(p.interestRate)}% per ${p.interestPer==='month'?'month':'year'} (flat)`:''],['Phone',p.phone&&`<a href="tel:${esc(p.phone)}">${esc(p.phone)}</a>`],['Email',p.email&&`<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>`],['Address',p.address],['Guarantor',p.guarantor],['ID reference',p.idRef&&`<span class="num">${esc(p.idRef)}</span>`],['Notes',p.notes]].filter(([,v])=>v);
   const bank=[['Bank',esc(p.bankName)],['Account name',esc(p.accountName)],['Account no.',p.accountNumber&&`<span class="num">${esc(p.accountNumber)}</span>`],['IBAN',p.iban&&`<span class="num">${esc(p.iban)}</span>`],['SWIFT',p.swift&&`<span class="num">${esc(p.swift)}</span>`],['Pays by',esc(p.method)]].filter(([,v])=>v);
   $('#view-detail').innerHTML=`<button class="back" id="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>Back</button>
-  <div class="section"><div class="section-head"><h2>Loans</h2></div>${loans.length?`<div class="list">${loans.map(loanItem).join('')}</div>`:`<div class="empty"><span>No loans recorded for ${esc(p.name)} yet.</span></div>`}</div>
+  <div class="section"><div class="section-head"><h2>Loans</h2></div>${loans.length?`<div class="list">${loans.map(loanItem).join('')}</div><button class="btn sm ghost" id="newLoanBtn">${plusSvg} Start a separate loan</button>`:`<div class="empty"><span>No loans recorded for ${esc(p.name)} yet.</span></div>`}</div>
   <div class="card"><h3>Bank account</h3>${bank.length?`<dl class="kv">${bank.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`:'<span class="muted small">No bank details saved.</span>'}</div>
   <div class="card"><h3>Contact &amp; details</h3>${kv.length?`<dl class="kv">${kv.map(([k,v])=>`<dt>${k}</dt><dd>${v.startsWith('<')?v:esc(v)}</dd>`).join('')}</dl>`:'<span class="muted small">Nothing else on file.</span>'}</div>
   <button class="btn danger block" id="delPerson">Delete person and their loans</button>`;
   $('#back').addEventListener('click',()=>{detail=null;tab='people';render();});
-  $('#delPerson').addEventListener('click',()=>{if(!confirm(`Delete ${p.name} and all their loans and payments? This cannot be undone.`))return;const ids=db.loans.filter(l=>l.personId===id).map(l=>l.id);db.loans=db.loans.filter(l=>l.personId!==id);db.payments=db.payments.filter(x=>!ids.includes(x.loanId));db.people=db.people.filter(x=>x.id!==id);save();detail=null;tab='people';render();toast('Person deleted');});
+  $('#newLoanBtn')?.addEventListener('click',()=>openLoan(null,p.id));
+  $('#delPerson').addEventListener('click',async()=>{if(!await ask(`Delete ${p.name} and all their loans and payments? This cannot be undone.`))return;const ids=db.loans.filter(l=>l.personId===id).map(l=>l.id);db.loans=db.loans.filter(l=>l.personId!==id);db.payments=db.payments.filter(x=>!ids.includes(x.loanId));db.people=db.people.filter(x=>x.id!==id);save();detail=null;tab='people';render();toast('Person deleted');});
   bindItems($('#view-detail'));
 }
 
@@ -528,8 +561,9 @@ function renderLoans(){
 function renderLoan(id){
   const l=db.loans.find(x=>x.id===id);if(!l){detail=null;return render();}
   const p=personOf(l.personId),s=schedule(l);
-  $('#hdrEyebrow').textContent='Loan to '+p.name;$('#hdrTitle').textContent=fmtMoney(l.amount,l.currency);
-  headerBtn('Edit',()=>openLoan(l));if(s.status!=='paid'&&l.status!=='closed')headerBtn(plusSvg+' Payment',()=>openPay(l),true);
+  const advs=advancesOf(l);
+  $('#hdrEyebrow').textContent='Loan to '+p.name;$('#hdrTitle').textContent=fmtMoney(s.principal,l.currency);
+  headerBtn('Edit',()=>openLoan(l));if(l.status!=='closed'&&s.status!=='paid')headerBtn(plusSvg+' Payment',()=>openPay(l),true);
   const pct=s.total?Math.min(100,s.paidTotal/s.total*100):0;
   const stateLine=s.status==='paid'?`<div class="notice good"><span>Fully repaid. Last payment ${fmtDate(s.pays.at(-1)?.date)}.</span></div>`:s.status==='overdue'?`<div class="notice bad"><span><b>${fmtMoney(s.overdueAmt,l.currency)} overdue.</b> ${s.rows.filter(r=>r.state==='overdue').length} payment(s) missed — oldest due ${fmtDate(s.next.date)}.</span></div>`:s.next?`<div class="notice ${s.status==='due'?'':'good'}"><span>Next payment <b>${fmtMoney(s.next.due-s.next.applied,l.currency)}</b> due ${fmtDate(s.next.date)} (${daysBetween(today(),s.next.date)} days).</span></div>`:'';
   $('#view-detail').innerHTML=`<button class="back" id="back"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>Back</button>
@@ -538,18 +572,24 @@ function renderLoan(id){
     <div class="bar"><i style="width:${pct.toFixed(1)}%"></i></div>
     <div class="stats"><div><span class="eyebrow">Recovered</span><span class="v">${fmtMoney(s.paidTotal)}</span></div><div><span class="eyebrow">Payments</span><span class="v">${s.rows.filter(r=>r.state==='paid').length} / ${l.instalments}</span></div><div><span class="eyebrow">Paid off</span><span class="v">${fmtShort(s.payoffDate)} ${parse(s.payoffDate).getFullYear()}</span></div></div></div>
   <div class="row wrap actions"><button class="btn grow" id="icsBtn"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Add reminders to calendar</button><button class="btn grow" id="waBtn"><svg viewBox="0 0 24 24"><path d="M4 20l1.3-3.8A8 8 0 1 1 8 19.1z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-1 .8a4 4 0 0 1-2-2l.8-1-1-2z"/></svg>Remind on WhatsApp</button><button class="btn grow" id="shareBtn"><svg viewBox="0 0 24 24"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M12 3v13M7 8l5-5 5 5"/></svg>Share statement</button></div>
-  <div class="card"><h3>Terms</h3><dl class="kv"><dt>Borrower</dt><dd><button class="back" data-person="${p.id}">${esc(p.name)}</button></dd><dt>Date loaned</dt><dd>${fmtDate(l.loanDate)}</dd><dt>Interest</dt><dd>${s.interest>0?`${l.interestRate}% per ${l.interestPer==='month'?'month':'year'} (flat) · ${fmtMoney(s.interest,l.currency)} → total repayable <span class="num">${fmtMoney(s.total,l.currency)}</span>`:'None'}</dd><dt>Schedule</dt><dd>${freqLabel(l.freqCount,l.freqUnit)} · ${l.instalments} payments of ~${fmtMoney(s.total/l.instalments,l.currency)}</dd><dt>First payment</dt><dd>${fmtDate(l.firstDue)}</dd>${l.purpose?`<dt>Purpose</dt><dd>${esc(l.purpose)}</dd>`:''}${l.notes?`<dt>Notes</dt><dd>${esc(l.notes)}</dd>`:''}</dl></div>
-  <div class="card"><h3>Payment schedule</h3><div class="scroll"><table class="sched"><thead><tr><th>#</th><th>Due date</th><th class="r">Amount</th><th class="r">Received</th><th>Status</th></tr></thead><tbody>${s.rows.map(r=>`<tr class="${r.state}"><td class="num">${r.k+1}</td><td>${fmtDate(r.date)}</td><td class="r num">${fmtMoney(r.due)}</td><td class="r num">${r.applied?fmtMoney(r.applied):'—'}</td><td><span class="pill ${r.state==='upcoming'?'':r.state==='due'?'due':r.state}">${({paid:'Paid',overdue:'Overdue',due:'Due soon',upcoming:'Upcoming'})[r.state]}${r.state!=='paid'&&r.applied?' (part)':''}</span></td></tr>`).join('')}</tbody></table></div></div>
+  <div class="card"><div class="row between"><h3>Borrowing timeline</h3><span class="small muted">${advs.length} ${advs.length===1?'entry':'entries'}</span></div>
+    <div class="scroll"><table class="sched"><thead><tr><th>Date</th><th class="r">Borrowed</th><th class="r">Running total</th><th></th></tr></thead><tbody>${(()=>{let run=0;return advs.map((a,i)=>{run=round2(run+(+a.amount||0));return `<tr><td>${fmtDate(a.date)}${a.note?`<div class="small muted">${esc(a.note)}</div>`:''}</td><td class="r num">+${fmtMoney(a.amount)}</td><td class="r num">${fmtMoney(run)}</td><td class="r"><button class="btn ghost sm" data-editadv="${a.id}">Edit</button></td></tr>`;}).join('');})()}</tbody></table></div>
+    ${l.status!=='closed'?`<button class="btn block" id="advBtn">${plusSvg} ${p.name.split(' ')[0]} borrowed more</button>`:''}</div>
+  <div class="card"><h3>Terms</h3><dl class="kv"><dt>Borrower</dt><dd><button class="back" data-person="${p.id}">${esc(p.name)}</button></dd><dt>First loaned</dt><dd>${fmtDate(advs[0].date)}${advs.length>1?` · ${advs.length-1} top-up${advs.length>2?'s':''}, total ${fmtMoney(s.principal,l.currency)}`:''}</dd><dt>Interest</dt><dd>${s.interest>0?`${l.interestRate}% per ${l.interestPer==='month'?'month':'year'} (flat) · ${fmtMoney(s.interest,l.currency)} → total repayable <span class="num">${fmtMoney(s.total,l.currency)}</span>`:'None'}</dd><dt>Schedule</dt><dd>${freqLabel(l.freqCount,l.freqUnit)} · ${l.instalments} payments of ~${fmtMoney(s.total/l.instalments,l.currency)}</dd><dt>First payment</dt><dd>${fmtDate(l.firstDue)}</dd>${l.purpose?`<dt>Purpose</dt><dd>${esc(l.purpose)}</dd>`:''}${l.notes?`<dt>Notes</dt><dd>${esc(l.notes)}</dd>`:''}</dl></div>
+  <div class="card"><h3>Payment schedule</h3><div class="scroll"><table class="sched"><thead><tr><th>#</th><th>Due date</th><th class="r">Amount</th><th class="r">Received</th><th>Status</th></tr></thead><tbody>${(()=>{const n=s.rows.length;const nextK=s.next?s.next.k:n-1;const start=Math.min(Math.max(0,nextK-1),Math.max(0,n-5));const shown=new Set();for(let k=start;k<Math.min(n,start+5);k++)shown.add(k);return s.rows.map(r=>`<tr class="${r.state}${shown.has(r.k)?'':' more'}" ${shown.has(r.k)?'':'hidden'}><td class="num">${r.k+1}</td><td>${fmtDate(r.date)}</td><td class="r num">${fmtMoney(r.due)}</td><td class="r num">${r.applied?fmtMoney(r.applied):'—'}</td><td><span class="pill ${r.state==='upcoming'?'':r.state==='due'?'due':r.state}">${({paid:'Paid',overdue:'Overdue',due:'Due soon',upcoming:'Upcoming'})[r.state]}${r.state!=='paid'&&r.applied?' (part)':''}</span></td></tr>`).join('');})()}</tbody></table></div>${s.rows.length>5?`<button class="btn sm ghost" id="schedMore" data-open="0">Show all ${s.rows.length} payments</button>`:''}</div>
   <div class="card"><div class="row between"><h3>Payments received</h3><span class="small muted">${s.pays.length}</span></div>${s.pays.length?`<div class="scroll"><table class="sched"><thead><tr><th>Date</th><th class="r">Amount</th><th>Method</th><th></th></tr></thead><tbody>${s.pays.map(x=>`<tr><td>${fmtDate(x.date)}${x.note?`<div class="small muted">${esc(x.note)}</div>`:''}</td><td class="r num">${fmtMoney(x.amount)}</td><td>${esc(x.method||'')}${x.ref?`<div class="small muted num">${esc(x.ref)}</div>`:''}</td><td class="r"><button class="btn ghost sm" data-editpay="${x.id}">Edit</button></td></tr>`).join('')}</tbody></table></div>`:'<span class="muted small">No payments received yet.</span>'}</div>
   <div class="row wrap">${l.status==='closed'?`<button class="btn grow" id="reopen">Reopen loan</button>`:`<button class="btn grow" id="closeLoan">Close / write off</button>`}<button class="btn danger grow" id="delLoan">Delete loan</button></div>`;
   $('#back').addEventListener('click',()=>{detail=null;render();});
   $('#icsBtn').addEventListener('click',()=>exportICS(l,s));
+  $('#advBtn')?.addEventListener('click',()=>openAdvance(l));
+  $('#schedMore')?.addEventListener('click',e=>{const b=e.currentTarget;const open=b.dataset.open!=='1';b.dataset.open=open?'1':'0';$$('#view-detail tr.more').forEach(tr=>tr.hidden=!open);b.textContent=open?'Show fewer':`Show all ${s.rows.length} payments`;});
+  $$('[data-editadv]').forEach(b=>b.addEventListener('click',()=>openAdvance(l,advs.find(a=>a.id===b.dataset.editadv))));
   $('#shareBtn').addEventListener('click',()=>shareStatement(l,s,p));
   $('#waBtn').addEventListener('click',()=>waOpen(l,s,p));
   $$('[data-editpay]').forEach(b=>b.addEventListener('click',()=>openPay(l,db.payments.find(x=>x.id===b.dataset.editpay))));
-  $('#closeLoan')?.addEventListener('click',()=>{if(!confirm('Mark this loan as closed? It will stop appearing in reminders.'))return;l.status='closed';save();render();});
+  $('#closeLoan')?.addEventListener('click',async()=>{if(!await ask('Mark this loan as closed? It will stop appearing in reminders.'))return;l.status='closed';save();render();});
   $('#reopen')?.addEventListener('click',()=>{l.status='active';save();render();});
-  $('#delLoan').addEventListener('click',()=>{if(!confirm('Delete this loan and all its payments?'))return;db.loans=db.loans.filter(x=>x.id!==id);db.payments=db.payments.filter(x=>x.loanId!==id);save();detail=null;render();toast('Loan deleted');});
+  $('#delLoan').addEventListener('click',async()=>{if(!await ask('Delete this loan and all its payments?'))return;db.loans=db.loans.filter(x=>x.id!==id);db.payments=db.payments.filter(x=>x.loanId!==id);save();detail=null;render();toast('Loan deleted');});
   bindItems($('#view-detail'));
 }
 
@@ -614,7 +654,7 @@ function waOpen(l,s,p){
   window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`,'_blank','noopener');
 }
 async function shareStatement(l,s,p){
-  const lines=[`Loan statement — ${p.name}`,`Loaned ${fmtMoney(l.amount,l.currency)} on ${fmtDate(l.loanDate)}${l.purpose?' ('+l.purpose+')':''}`,...(s.interest>0?[`Interest: ${l.interestRate}% per ${l.interestPer} (flat) = ${fmtMoney(s.interest,l.currency)} — total repayable ${fmtMoney(s.total,l.currency)}`]:[]),`Received so far: ${fmtMoney(s.paidTotal,l.currency)}`,`Outstanding: ${fmtMoney(s.outstanding,l.currency)}`,s.next?`Next payment: ${fmtMoney(s.next.due-s.next.applied,l.currency)} due ${fmtDate(s.next.date)}`:'Fully paid',`Plan: ${freqLabel(l.freqCount,l.freqUnit)}, paid off by ${fmtDate(s.payoffDate)}`,'',...s.pays.map(x=>`${fmtDate(x.date)}  ${fmtMoney(x.amount,l.currency)}  ${x.method||''}`)];
+  const lines=[`Loan statement — ${p.name}`,`Loaned ${fmtMoney(s.principal,l.currency)} in total${l.purpose?' ('+l.purpose+')':''}:`,...advancesOf(l).map(a=>`  ${fmtDate(a.date)}  +${fmtMoney(a.amount,l.currency)}${a.note?'  '+a.note:''}`),...(s.interest>0?[`Interest: ${l.interestRate}% per ${l.interestPer} (flat) = ${fmtMoney(s.interest,l.currency)} — total repayable ${fmtMoney(s.total,l.currency)}`]:[]),`Received so far: ${fmtMoney(s.paidTotal,l.currency)}`,`Outstanding: ${fmtMoney(s.outstanding,l.currency)}`,s.next?`Next payment: ${fmtMoney(s.next.due-s.next.applied,l.currency)} due ${fmtDate(s.next.date)}`:'Fully paid',`Plan: ${freqLabel(l.freqCount,l.freqUnit)}, paid off by ${fmtDate(s.payoffDate)}`,'',...s.pays.map(x=>`${fmtDate(x.date)}  ${fmtMoney(x.amount,l.currency)}  ${x.method||''}`)];
   const text=lines.join('\n');
   if(navigator.share){try{await navigator.share({title:'Loan statement',text});return;}catch(e){}}
   try{await navigator.clipboard.writeText(text);toast('Statement copied to clipboard');}catch(e){prompt('Copy this statement:',text);}
@@ -645,23 +685,25 @@ function renderMore(){
   bindSec();
   $('#expJson').addEventListener('click',()=>downloadFile(`lent-ledger-backup-${today()}.json`,JSON.stringify(db,null,2),'application/json'));
   $('#impJson').addEventListener('click',()=>$('#fileImp').click());
-  $('#fileImp').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.people)||!Array.isArray(d.loans))throw 0;if(!confirm(`Replace current data with this backup (${d.people.length} people, ${d.loans.length} loans)?`))return;db=Object.assign({people:[],loans:[],payments:[],settings:{}},d);db.settings=Object.assign({currency:'AED',daysBefore:3,notify:false,sample:false},db.settings);save();render();toast('Backup restored');}catch(err){toast('That file is not a Lent Ledger backup.');}e.target.value='';});
+  $('#fileImp').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.people)||!Array.isArray(d.loans))throw 0;if(!await ask(`Replace current data with this backup (${d.people.length} people, ${d.loans.length} loans)?`))return;db=Object.assign({people:[],loans:[],payments:[],settings:{}},d);db.settings=Object.assign({currency:'AED',daysBefore:3,notify:false,sample:false},db.settings);save();render();toast('Backup restored');}catch(err){toast('That file is not a Lent Ledger backup.');}e.target.value='';});
   $('#expCsv').addEventListener('click',exportCSV);
   $('#clearSample2')?.addEventListener('click',clearSample);
-  $('#wipe').addEventListener('click',()=>{if(!confirm('Erase all people, loans and payments from this device?'))return;if(!confirm('Really erase everything? Export a backup first if unsure.'))return;db={people:[],loans:[],payments:[],settings:Object.assign({},db.settings,{sample:false})};save();render();toast('All data erased');});
+  $('#wipe').addEventListener('click',async()=>{if(!await ask('Erase all people, loans and payments from this device?'))return;if(!await ask('Really erase everything? Export a backup first if unsure.'))return;db={people:[],loans:[],payments:[],settings:Object.assign({},db.settings,{sample:false})};save();render();toast('All data erased');});
 }
 function clearSample(){db.people=db.people.filter(p=>!p.id.startsWith('p_sample'));db.loans=db.loans.filter(l=>!l.id.startsWith('l_sample'));db.payments=db.payments.filter(x=>!x.id.startsWith('pay_s'));db.settings.sample=false;save();render();toast('Example data cleared');}
 function exportCSV(){
   const q=s=>`"${String(s??'').replace(/"/g,'""')}"`;
   const rows=[['Type','Person','Relationship','Phone','Bank','Account no.','IBAN','Loan date','Currency','Amount','Interest rate','Rate per','Interest','Total repayable','Purpose','Frequency','First due','Instalments','Pay-off by','Paid','Outstanding','Status','Payment date','Payment amount','Method','Reference','Note']];
-  db.loans.forEach(l=>{const p=personOf(l.personId),s=schedule(l);const base=['Loan',p.name,p.relationship,p.phone,p.bankName,p.accountNumber,p.iban,l.loanDate,l.currency,l.amount,l.interestRate||0,l.interestRate?l.interestPer:'',s.interest,s.total,l.purpose,freqLabel(l.freqCount,l.freqUnit),l.firstDue,l.instalments,s.payoffDate,s.paidTotal,s.outstanding,l.status==='closed'?'closed':s.status];rows.push(base);s.pays.forEach(x=>rows.push(['Payment',p.name,'','','','','','',l.currency,'','','','','','','','','','','','',x.date,x.amount,x.method,x.ref,x.note]));});
+  db.loans.forEach(l=>{const p=personOf(l.personId),s=schedule(l);const base=['Loan',p.name,p.relationship,p.phone,p.bankName,p.accountNumber,p.iban,l.loanDate,l.currency,l.amount,l.interestRate||0,l.interestRate?l.interestPer:'',s.interest,s.total,l.purpose,freqLabel(l.freqCount,l.freqUnit),l.firstDue,l.instalments,s.payoffDate,s.paidTotal,s.outstanding,l.status==='closed'?'closed':s.status];rows.push(base);advancesOf(l).forEach(a=>rows.push(['Borrowed',p.name,'','','','','',a.date,l.currency,a.amount,'','','','','','','','','','','','','','','',a.note]));s.pays.forEach(x=>rows.push(['Payment',p.name,'','','','','','',l.currency,'','','','','','','','','','','','',x.date,x.amount,x.method,x.ref,x.note]));});
   downloadFile(`lent-ledger-${today()}.csv`,rows.map(r=>r.map(q).join(',')).join('\r\n'),'text/csv');
 }
 function applyTheme(t,persist){const root=document.documentElement;if(t)root.setAttribute('data-theme',t);else root.removeAttribute('data-theme');if(persist){try{t?localStorage.setItem('lentledger.theme',t):localStorage.removeItem('lentledger.theme');}catch(e){}if(tab==='more'&&!detail)render();}}
 try{applyTheme(localStorage.getItem('lentledger.theme')||'');}catch(e){}
 
 /* ---------- dialogs ---------- */
-$$('dialog.sheet').forEach(d=>{$('[data-close]',d).addEventListener('click',()=>d.close());d.addEventListener('click',e=>{if(e.target===d)d.close();});});
+function ask(msg){return new Promise(res=>{const d=$('#dlgAsk');$('#askMsg').textContent=msg;const done=v=>{d.removeEventListener('close',onClose);d.close();res(v);};const onClose=()=>{res(false);};
+  $('#askYes').onclick=()=>done(true);$('#askNo').onclick=()=>done(false);d.addEventListener('close',onClose);d.showModal();$('#askNo').focus();});}
+$$('dialog.sheet').forEach(d=>{$('[data-close]',d)?.addEventListener('click',()=>d.close());d.addEventListener('click',e=>{if(e.target===d)d.close();});});
 function fill(form,obj){$$('[name]',form).forEach(el=>{el.value=obj[el.name]??'';});}
 function read(form){const o={};$$('[name]',form).forEach(el=>{o[el.name]=el.value.trim();});return o;}
 
@@ -709,17 +751,52 @@ function openLoan(l,personId){
   $('#loanCurrency').innerHTML=CURRENCIES.map(c=>`<option>${c}</option>`).join('');
   populateLoanPeople(l?l.personId:personId);
   const unit=l?l.freqUnit:'month';$('#freqUnit').value=unit;fillFreq(unit,l?l.freqCount:1);
-  fill(f,l?{id:l.id,amount:l.amount,currency:l.currency,loanDate:l.loanDate,purpose:l.purpose,firstDue:l.firstDue,notes:l.notes,payoffDate:stepDate(l.firstDue,l.instalments-1,l.freqCount,l.freqUnit),instalment:round2(l.amount/l.instalments)}:{currency:db.settings.currency,loanDate:today(),firstDue:addMonths(today(),1),payoffDate:addMonths(today(),12)});
+  $('#amtHint').hidden=!(l&&advancesOf(l).length>1);
+  fill(f,l?{id:l.id,amount:advancesOf(l)[0].amount,currency:l.currency,loanDate:l.loanDate,purpose:l.purpose,firstDue:l.firstDue,notes:l.notes,payoffDate:stepDate(l.firstDue,l.instalments-1,l.freqCount,l.freqUnit),instalment:round2(l.amount/l.instalments)}:{currency:db.settings.currency,loanDate:today(),firstDue:addMonths(today(),1),payoffDate:addMonths(today(),12)});
   $('#loanPerson').value=l?l.personId:(personId||'');$('#freqUnit').value=unit;$('#freqCount').value=l?l.freqCount:1;
-  planMode='payoff';$$('#planMode button').forEach(x=>x.classList.toggle('on',x.dataset.mode==='payoff'));$('#fPayoff').hidden=false;$('#fInst').hidden=true;
+  planMode=l&&l.planMode==='instalment'?'instalment':'payoff';$$('#planMode button').forEach(x=>x.classList.toggle('on',x.dataset.mode===planMode));$('#fPayoff').hidden=planMode!=='payoff';$('#fInst').hidden=planMode!=='instalment';
   if(l){$('#formLoan [name=interestRate]').value=l.interestRate||'';$('#formLoan [name=interestPer]').value=l.interestPer||'year';}
   loanInterestToggle(!l);$('#loanTitle').textContent=l?'Edit loan':'New loan';preview();$('#dlgLoan').showModal();
 }
 $('#formLoan').addEventListener('submit',e=>{e.preventDefault();const o=read(e.target);const pl=planFromForm();
   if(!o.personId){toast('Choose who you lent to.');return;}if(!pl||pl.err){toast(pl?.err||'Complete the repayment plan.');return;}
-  const rec={personId:o.personId,amount:round2(+o.amount),currency:o.currency,loanDate:o.loanDate,purpose:o.purpose,freqCount:pl.c,freqUnit:pl.u,firstDue:o.firstDue,instalments:pl.n,notes:o.notes,interestRate:pl.rate,interestPer:pl.per_};
-  let id=o.id;if(id){Object.assign(db.loans.find(x=>x.id===id),rec);}else{id=uid();db.loans.push(Object.assign({id,status:'active',createdAt:Date.now()},rec));}
+  const rec={personId:o.personId,amount:round2(+o.amount),currency:o.currency,loanDate:o.loanDate,purpose:o.purpose,freqCount:pl.c,freqUnit:pl.u,firstDue:o.firstDue,instalments:pl.n,notes:o.notes,interestRate:pl.rate,interestPer:pl.per_,planMode};
+  let id=o.id;
+  if(id){const L=db.loans.find(x=>x.id===id);const advs=advancesOf(L);advs[0].amount=rec.amount;advs[0].date=rec.loanDate;L.advances=advs;Object.assign(L,rec,{amount:principalOf(L)});}
+  else{id=uid();db.loans.push(Object.assign({id,status:'active',createdAt:Date.now(),advances:[{id:uid(),date:rec.loanDate,amount:rec.amount,note:'Original loan'}]},rec));}
   save();$('#dlgLoan').close();toast(o.id?'Loan updated':'Loan added');detail={type:'loan',id};render();window.scrollTo(0,0);
+});
+
+let advMode='spread';
+$('#formAdv').addEventListener('input',advHint);
+function advHint(){
+  const l=db.loans.find(x=>x.id===$('#formAdv [name=loanId]').value);if(!l)return;const s=schedule(l);const amt=+$('#formAdv [name=amount]').value||0;
+  const remainingRows=s.rows.filter(r=>r.state!=='paid').length||1;const inst=s.next?s.next.due:(s.total/l.instalments);
+  if(!amt){$('#advHint').textContent=advMode==='spread'?`This loan is planned by pay-off date (${fmtDate(s.payoffDate)}), so the extra is spread over the ${remainingRows} remaining payment${remainingRows>1?'s':''} and the date stays the same.`:`This loan is planned by payment size (about ${fmtMoney(inst,l.currency)}), so payments stay the same and more are added at the end.`;return;}
+  if(advMode==='spread'){$('#advHint').textContent=`About ${fmtMoney(amt/remainingRows,l.currency)} more on each of the ${remainingRows} remaining payment${remainingRows>1?'s':''}; pay-off date stays ${fmtDate(s.payoffDate)}.`;}
+  else{const extra=Math.max(1,Math.ceil(amt/inst-1e-9));const n=l.instalments+extra;$('#advHint').textContent=`Adds ${extra} more payment${extra>1?'s':''} of about ${fmtMoney(inst,l.currency)}; new pay-off date ${fmtDate(stepDate(l.firstDue,n-1,l.freqCount,l.freqUnit))}.`;}
+}
+function openAdvance(l,adv){
+  const f=$('#formAdv');f.reset();const s=schedule(l),p=personOf(l.personId);
+  fill(f,adv?{id:adv.id,loanId:l.id,amount:adv.amount,date:adv.date,note:adv.note}:{loanId:l.id,date:today()});
+  $('#advTitle').textContent=adv?'Edit borrowing entry':`${p.name.split(' ')[0]} borrowed more`;
+  $('#advContext').innerHTML=`<span><b>${esc(p.name)}</b> · borrowed ${fmtMoney(s.principal,l.currency)} so far · ${fmtMoney(s.outstanding,l.currency)} outstanding</span>`;
+  $('#advModeWrap').hidden=!!adv;advMode=l.planMode==='instalment'?'extend':'spread';
+  let del=$('#delAdv');if(!del){del=document.createElement('button');del.type='button';del.className='btn danger';del.id='delAdv';del.textContent='Delete';del.style.flex='0 0 auto';$('#formAdv .sheet-foot').prepend(del);
+    del.addEventListener('click',async()=>{const id=$('#formAdv [name=id]').value,loanId=$('#formAdv [name=loanId]').value;const L=db.loans.find(x=>x.id===loanId);if(!L||!id)return;if(advancesOf(L).length<=1){toast('A loan needs at least one borrowing entry.');return;}if(!await ask('Remove this borrowing entry?'))return;L.advances=advancesOf(L).filter(a=>a.id!==id);L.amount=principalOf(L);save();$('#dlgAdv').close();detail={type:'loan',id:loanId};render();toast('Entry removed');});}
+  del.hidden=!adv;
+  advHint();$('#dlgAdv').showModal();
+}
+$('#formAdv').addEventListener('submit',e=>{e.preventDefault();const o=read(e.target);const amt=round2(+o.amount);if(!amt)return;const l=db.loans.find(x=>x.id===o.loanId);if(!l)return;
+  l.advances=advancesOf(l);
+  if(o.id){const a=l.advances.find(x=>x.id===o.id);Object.assign(a,{amount:amt,date:o.date,note:o.note});}
+  else{
+    if(advMode==='extend'){const s=schedule(l);const inst=s.next?s.next.due:(s.total/l.instalments);const rate=+l.interestRate||0;const gross=amt+interestOf(amt,rate,l.interestPer||'year',o.date,stepDate(l.firstDue,l.instalments-1,l.freqCount,l.freqUnit));l.instalments+=Math.max(1,Math.ceil(gross/inst-1e-9));}
+    l.advances.push({id:uid(),date:o.date,amount:amt,note:o.note});
+    if(l.status==='closed')l.status='active';
+  }
+  l.amount=principalOf(l);if(o.date<l.loanDate)l.loanDate=o.date;
+  save();$('#dlgAdv').close();detail={type:'loan',id:l.id};render();toast(o.id?'Entry updated':`Added ${fmtMoney(amt,l.currency)} to the loan`);
 });
 
 function openPay(l,pay){
@@ -741,7 +818,7 @@ $('#formPay').insertAdjacentHTML('beforeend','');
 // delete payment via edit form: add a delete button when editing
 $('#dlgPay').addEventListener('close',()=>{});
 (function addDeletePay(){const foot=$('#formPay .sheet-foot');const b=document.createElement('button');b.type='button';b.className='btn danger';b.textContent='Delete';b.style.flex='0 0 auto';b.id='delPay';foot.prepend(b);
-  b.addEventListener('click',()=>{const id=$('#formPay [name=id]').value;if(!id)return;if(!confirm('Delete this payment?'))return;const loanId=$('#formPay [name=loanId]').value;db.payments=db.payments.filter(x=>x.id!==id);save();$('#dlgPay').close();detail={type:'loan',id:loanId};render();toast('Payment deleted');});
+  b.addEventListener('click',async()=>{const id=$('#formPay [name=id]').value;if(!id)return;if(!await ask('Delete this payment?'))return;const loanId=$('#formPay [name=loanId]').value;db.payments=db.payments.filter(x=>x.id!==id);save();$('#dlgPay').close();detail={type:'loan',id:loanId};render();toast('Payment deleted');});
   $('#dlgPay').addEventListener('toggle',()=>{});
   const obs=new MutationObserver(()=>{b.hidden=!$('#formPay [name=id]').value;});obs.observe($('#dlgPay'),{attributes:true,attributeFilter:['open']});
 })();
@@ -778,7 +855,7 @@ async function bioUnlock(silent){
 }
 $('#lockBio').addEventListener('click',()=>bioUnlock(false));
 let forgotAction=null;$('#lockForgot').addEventListener('click',()=>forgotAction&&forgotAction());
-const eraseAction=()=>{if(!confirm('Without the PIN the only way back in is to erase all data on this device. Restore from a backup afterwards if you have one.\n\nErase everything now?'))return;if(!confirm('Really erase all people, loans and payments?'))return;db={people:[],loans:[],payments:[],settings:Object.assign({},db.settings,{sample:false,security:{pinHash:'',salt:'',bio:'',lockAfter:60}})};save();hideLock();render();toast('Data erased');};
+const eraseAction=async()=>{if(!await ask('Without the PIN the only way back in is to erase all data on this device. Restore from a backup afterwards if you have one.\n\nErase everything now?'))return;if(!await ask('Really erase all people, loans and payments?'))return;db={people:[],loans:[],payments:[],settings:Object.assign({},db.settings,{sample:false,security:{pinHash:'',salt:'',bio:'',lockAfter:60}})};save();hideLock();render();toast('Data erased');};
 const cancelAction=()=>{$('#lockForgot').textContent='Forgot PIN?';hideLock();};
 function setupPin(cb){
   let first='';
